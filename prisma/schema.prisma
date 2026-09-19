@@ -1,0 +1,127 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [postgis()]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+  binaryTargets   = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x"]
+}
+
+enum Role {
+  CITIZEN
+  OFFICER
+  ADMIN
+}
+
+enum Category {
+  POTHOLE
+  WASTE_DUMPING
+  STREETLIGHT
+  WATER_LEAKAGE
+  DRAINAGE
+  OTHER
+}
+
+enum Status {
+  SUBMITTED
+  AI_VERIFIED
+  DISPATCHED
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED_SLA
+  REJECTED_INVALID
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  role      Role     @default(CITIZEN)
+  phone     String?
+  wardId    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incidents Incident[] @relation("ReportedIncidents")
+  assigned  Incident[] @relation("AssignedOfficer")
+  auditLogs AuditLog[]
+}
+
+model Ward {
+  id                 Int        @id @default(autoincrement())
+  number             Int        @unique
+  name               String
+  zone               String     @default("Kozhikode Central")
+  officerName        String
+  officerPhone       String
+  slaComplianceRate  Float      @default(94.5)
+  activeIssuesCount  Int        @default(0)
+  incidents          Incident[]
+}
+
+model Incident {
+  id                   String     @id @default(uuid())
+  ticketNumber         String     @unique
+  title                String
+  description          String
+  category             Category
+  status               Status     @default(SUBMITTED)
+  severity             Severity   @default(MEDIUM)
+  confidenceScore      Float      @default(0.85)
+  latitude             Float
+  longitude            Float
+  address              String
+  wardNumber           Int
+  citizenPhotoUrl      String
+  resolutionPhotoUrl   String?
+  isPrivacyRedacted    Boolean    @default(true)
+  originalFileSizeKb   Int        @default(2400)
+  compressedFileSizeKb Int        @default(320)
+  slaDeadline          DateTime
+  isSlaBreached        Boolean    @default(false)
+  duplicateOfId        String?
+  resolvedNotes        String?
+
+  reporterId           String
+  reporter             User       @relation("ReportedIncidents", fields: [reporterId], references: [id])
+  assignedOfficerId    String?
+  assignedOfficer      User?      @relation("AssignedOfficer", fields: [assignedOfficerId], references: [id])
+  ward                 Ward       @relation(fields: [wardNumber], references: [number])
+
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  resolvedAt           DateTime?
+
+  auditLogs            AuditLog[]
+
+  @@index([latitude, longitude])
+  @@index([status])
+  @@index([wardNumber])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  incidentId String
+  action     String
+  actorId    String
+  actorRole  Role
+  details    String?
+  timestamp  DateTime @default(now())
+
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@index([incidentId])
+  @@index([timestamp])
+}

@@ -1,0 +1,141 @@
+@import "leaflet/dist/leaflet.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #050508;
+    --foreground: #f8fafc;
+    --card-bg: rgba(15, 19, 32, 0.7);
+    --card-border: rgba(255, 255, 255, 0.08);
+    --accent-cyan: #00f2fe;
+    --accent-indigo: #6366f1;
+    color-scheme: dark;
+  }
+
+  .light {
+    --background: #f8fafc;
+    --foreground: #090d16;
+    --card-bg: rgba(255, 255, 255, 0.9);
+    --card-border: rgba(0, 0, 0, 0.08);
+    --accent-cyan: #0284c7;
+    --accent-indigo: #4f46e5;
+    color-scheme: light;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  overflow-x: hidden;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* ProtoX Ambient Glow Background */
+.protox-canvas {
+  background-color: #050508;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 0% 40%, rgba(0, 242, 254, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 100% 70%, rgba(139, 92, 246, 0.09) 0%, transparent 45%);
+}
+
+.light .protox-canvas {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 0% 40%, rgba(2, 132, 199, 0.05) 0%, transparent 40%);
+}
+
+/* Glassmorphism primitives */
+.glass-panel {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--card-border);
+}
+
+.glass-panel-glow {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 30px -10px rgba(99, 102, 241, 0.15);
+}
+
+/* Spotlight Card Base */
+.spotlight-card {
+  position: relative;
+  overflow: hidden;
+  background: rgba(14, 18, 30, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.spotlight-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.light .spotlight-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.light .spotlight-card:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050508;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Leaflet Map Custom Theme Fix */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #0b0d14 !important;
+  font-family: inherit !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #0d111d !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.8) !important;
+}
+
+.leaflet-popup-tip {
+  background: #0d111d !important;
+}
+
+/* Range input slider styling for Before/After Slider */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #00f2fe;
+  cursor: ew-resize;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.8);
+  border: 2px solid white;
+}
