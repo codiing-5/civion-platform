@@ -30,11 +30,11 @@ Civion uses a zero-leakage, production-grade **Email OTP Authentication Service*
 
 ---
 
-### B. ProtoX Visual Design System & Aesthetics
+### B. Modern Visual Design System & Aesthetics
 - **Dark Ambient Lighting Engine**: Base canvas `#050508` overlaid with soft indigo and cyan radial backdrop blur gradients.
-- **Nordax Live Telemetry Pill**: Monospaced status badge with pulsating live indicator (`● Protocol v1.0 • Live | Grid Health: 99.4%`).
-- **Odyssey Display Typography**: High-contrast display headlines using Google Fonts Syne and Plus Jakarta Sans.
-- **ProtoX Spotlight Bento Grid**: Interactive cards tracking mouse cursor coordinates to project dynamic radial spotlights.
+- **Live Telemetry Pill**: Monospaced status badge with pulsating live indicator (`● Protocol v1.0 • Live | Grid Health: 99.4%`).
+- **Modern Display Typography**: High-contrast display headlines using Google Fonts Syne and Plus Jakarta Sans.
+- **Interactive Spotlight Bento Grid**: Cards tracking mouse cursor coordinates to project dynamic radial spotlights.
 
 ---
 
