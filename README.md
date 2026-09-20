@@ -3,7 +3,7 @@
 > **"Real People. Real Photos. Healthier Cities."**  
 > **Created & Architected by:** Rojan Jose  
 > **Target Repository:** `codiing-5/civion-platform`  
-> **Deployment Target:** Vercel (Serverless Functions + Vercel Cron + Static Front-end Hosting)
+> **Deployment Target:** Vercel (Serverless Functions + Vercel Cron + Next.js App Router)
 
 ---
 
@@ -15,20 +15,39 @@
 
 ## 2. Key Architecture & Features
 
-### A. ProtoX Visual Design System & Aesthetics
-- **Dark Ambient Lighting Engine**: Base canvas `#050508` overlaid with soft indigo and cyan radial backdrop blur gradients (`bg-gradient-to-r from-indigo-500/10 to-cyan-500/10 blur-3xl`).
+### A. Secure Email OTP Authentication
+Civion uses a zero-leakage, production-grade **Email OTP Authentication Service**:
+- **Email-First Interface**: Citizens register and log in using their email address (`/login`).
+- **Cryptographically Secure OTP**: 6-digit codes generated using Node.js `crypto.randomInt` (never `Math.random`).
+- **HMAC-SHA256 Hash Storage**: Plaintext codes are never stored in memory or databases; verified using `crypto.timingSafeEqual` to thwart timing attacks.
+- **5-Minute Expiry & Single-Use**: Codes expire in 5 minutes and are invalidated immediately upon verification. Max 5 failed attempts allowed before mandatory lockout.
+- **Multi-Tier Rate Limiting**: In-memory sliding window rate limits per IP (10 requests/10 min) and per Email (4 sends/10 min, 5 verify attempts/10 min) with `429 Too Many Requests` + `Retry-After` headers.
+- **Session Protection**: Issues scoped JWT tokens stored in secure `HttpOnly`, `SameSite=Lax` cookies.
+
+#### Local Dev vs. Production Behavior:
+- **Local Development (`localhost`)**: When running locally without a `RESEND_API_KEY`, the server operates in Dev Simulation mode — generating the code to the server terminal and rendering a convenient **Auto-Fill Dev Code** badge in the UI for instant testing.
+- **Production Deployments (`NODE_ENV=production`)**: Dev codes and helper badges are strictly disabled. Verification emails are dispatched directly to user inboxes via **Resend**.
+
+---
+
+### B. ProtoX Visual Design System & Aesthetics
+- **Dark Ambient Lighting Engine**: Base canvas `#050508` overlaid with soft indigo and cyan radial backdrop blur gradients.
 - **Nordax Live Telemetry Pill**: Monospaced status badge with pulsating live indicator (`● Protocol v1.0 • Live | Grid Health: 99.4%`).
 - **Odyssey Display Typography**: High-contrast display headlines using Google Fonts Syne and Plus Jakarta Sans.
-- **ProtoX Spotlight Bento Grid**: Interactive cards tracking mouse cursor coordinates to project dynamic radial spotlight lights (`radial-gradient(circle at x y)`).
+- **ProtoX Spotlight Bento Grid**: Interactive cards tracking mouse cursor coordinates to project dynamic radial spotlights.
 
-### B. Role Immutability & QuickDemo Switcher
+---
+
+### C. Role Immutability & QuickDemo Switcher
 - **Absolute Role Lock**: User roles (`CITIZEN`, `OFFICER`, `ADMIN`) are immutable upon account creation. Role fields are stripped from all profile updates to prevent privilege escalation.
-- **Pitch Mode Header (`QuickDemoBanner`)**: Enables judges and evaluators to instantly switch between:
+- **Pitch Mode Header (`QuickDemoBanner`)**: Enables evaluators to instantly test role behaviors:
   - **Citizen View** (Rohan Nair): WebP photo submission, live AI privacy redactor, confidence flooring.
   - **Officer View** (Ward 14 Officer K. V. Suresh Kumar): Resolution dispatch, Before/After repair proof upload.
   - **Admin View** (Director Rojan Jose): SLA escalation trigger, municipal export center, PostGIS telemetry.
 
-### C. PostGIS Spatial Deduplication (<50m Radius)
+---
+
+### D. PostGIS Spatial Deduplication (<50m Radius)
 - Runs real-time distance calculations using `ST_DWithin` over active tickets submitted within a 72-hour window:
   ```sql
   SELECT id, "ticketNumber", title, category, status,
@@ -46,16 +65,22 @@
   AND status != 'RESOLVED';
   ```
 
-### D. AI Privacy Scrubbing & Confidence Flooring
+---
+
+### E. AI Privacy Scrubbing & Confidence Flooring
 - **Client-Side WebP Compression**: Reduces image payloads from ~3.5MB to <350KB before upload.
 - **Privacy Redactor**: Overlays blur masks on detected human faces and vehicle license plates.
 - **Confidence Flooring**: Rejects any upload with confidence `< 0.40` as `REJECTED_INVALID`.
 
-### E. Before / After Resolution Verification Slider
+---
+
+### F. Before / After Resolution Verification Slider
 - Interactive touch/drag split-screen slider comparing original citizen report proof with municipal repair certification.
 
-### F. Municipal Export Panel
-- Generates downloadable CSV audit tables and print-ready formatted PDF reports using `jsPDF`.
+---
+
+### G. Municipal Export Panel
+- Generates downloadable CSV audit tables and print-ready formatted PDF reports using `jspdf`.
 
 ---
 
@@ -72,33 +97,45 @@
 
 ---
 
-## 4. Local Development
+## 4. Environment Variables
 
-```bash
-# Clone the repository
-git clone https://github.com/codiing-5/civion-platform.git
-cd civion-platform
+Configure the following variables in your `.env` (or Vercel Project Settings):
 
-# Install dependencies
-npm install
-
-# Run development server
-npm run dev
-```
-
-Visit `http://localhost:3000` to access the interactive platform.
+| Variable | Description | Required in Production |
+|---|---|:---:|
+| `DATABASE_URL` | PostgreSQL connection string (Supabase / PostGIS) | Yes |
+| `JWT_SECRET` | Secret key used to sign and verify session JWTs | Yes |
+| `RESEND_API_KEY` | Resend API Key (`re_...`) for transactional email delivery | Yes (Prod only) |
+| `EMAIL_FROM` | Sender address (e.g. `Civion <onboarding@resend.dev>` or custom domain) | Optional |
+| `OTP_PEPPER` | Cryptographic secret salt for hashing OTP codes | Optional |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Mapbox GL token for street tiles | Optional |
 
 ---
 
-## 5. Vercel Deployment & Cron Setup
+## 5. Local Development
 
-1. Push to GitHub repository `codiing-5/civion-platform`.
-2. Connect the repository in the Vercel Dashboard.
-3. Configure environment variables (optional for standalone demo, or connect Supabase PostGIS):
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `NEXT_PUBLIC_MAPBOX_TOKEN`
-4. The automated hourly SLA escalation cron job (`0 * * * *`) is configured via `vercel.json`:
+```bash
+# 1. Clone repository
+git clone https://github.com/codiing-5/civion-platform.git
+cd civion-platform
+
+# 2. Install dependencies
+npm install
+
+# 3. Start development server
+npm run dev
+```
+
+Visit `http://localhost:3000` or `http://localhost:3000/login` to interact with the platform.
+
+---
+
+## 6. Vercel Deployment & Cron Setup
+
+1. Connect your repository `codiing-5/civion-platform` in the **Vercel Dashboard**.
+2. Add environment variables (`DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`).
+3. Deploy!
+4. The automated hourly SLA escalation cron job (`0 * * * *`) runs automatically via `vercel.json`:
    ```json
    {
      "framework": "nextjs",
@@ -113,7 +150,7 @@ Visit `http://localhost:3000` to access the interactive platform.
 
 ---
 
-## 6. Author
+## 7. Author
 
 **Rojan Jose**  
 Lead Developer & AI Systems Architect  
