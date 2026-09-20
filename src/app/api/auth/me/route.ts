@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       user: {
         id: payload.userId,
         name: payload.name,
+        email: payload.email,
         phone: payload.phone,
         role: payload.role,
       },
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
     user: {
       id: user.id,
       name: user.name,
+      email: user.email,
       phone: user.phone,
       role: user.role,
       wardId: user.wardId,

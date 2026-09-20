@@ -164,7 +164,7 @@ export const Navbar: React.FC = () => {
                     {user.name}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    +91 {user.phone}
+                    {user.email || user.phone}
                   </p>
                 </div>
               </div>

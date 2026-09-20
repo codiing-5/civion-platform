@@ -8,8 +8,17 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  requestOtp: (phone: string) => Promise<{ success: boolean; isExistingUser: boolean; demoOtp?: string; error?: string }>;
-  verifyOtp: (phone: string, otp: string, fullName?: string) => Promise<{ success: boolean; error?: string }>;
+  sendEmailOtp: (email: string) => Promise<{
+    success: boolean;
+    isExistingUser?: boolean;
+    cooldownSeconds?: number;
+    error?: string;
+  }>;
+  verifyEmailOtp: (
+    email: string,
+    otp: string,
+    fullName?: string
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -25,7 +34,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const router = useRouter();
   const pathname = usePathname();
 
-  // Initialize auth from localStorage on client load
+  // Initialize auth session on client load
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -49,8 +58,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const protectedRoutes = ["/dashboard", "/report", "/map", "/reports", "/emergency"];
     const authRoutes = ["/login", "/auth"];
 
-    const isProtected = protectedRoutes.some((route) => pathname === route || pathname?.startsWith(route + "/"));
-    const isAuthRoute = authRoutes.some((route) => pathname === route || pathname?.startsWith(route + "/"));
+    const isProtected = protectedRoutes.some(
+      (route) => pathname === route || pathname?.startsWith(route + "/")
+    );
+    const isAuthRoute = authRoutes.some(
+      (route) => pathname === route || pathname?.startsWith(route + "/")
+    );
 
     if (!user && isProtected) {
       router.replace("/login");
@@ -59,40 +72,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user, isLoading, pathname, router]);
 
-  const requestOtp = async (phone: string) => {
+  const sendEmailOtp = async (email: string) => {
     try {
-      const res = await fetch("/api/auth/phone-login", {
+      const res = await fetch("/api/auth/send-email-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "REQUEST_OTP", phone }),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, isExistingUser: false, error: data.error || "Unable to send verification code." };
+        return {
+          success: false,
+          error: data.error || "Unable to send verification code. Please check your email address.",
+        };
       }
 
       return {
         success: true,
         isExistingUser: data.isExistingUser,
-        demoOtp: data.demoOtp,
+        cooldownSeconds: data.cooldownSeconds || 60,
       };
-    } catch (err) {
-      return { success: false, isExistingUser: false, error: "Network error. Please try again." };
+    } catch {
+      return {
+        success: false,
+        error: "Network error. Please check your internet connection and try again.",
+      };
     }
   };
 
-  const verifyOtp = async (phone: string, otp: string, fullName?: string) => {
+  const verifyEmailOtp = async (email: string, otp: string, fullName?: string) => {
     try {
-      const res = await fetch("/api/auth/phone-login", {
+      const res = await fetch("/api/auth/verify-email-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "VERIFY_OTP", phone, otp, fullName }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          otp: otp.trim(),
+          fullName: fullName?.trim(),
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || "Invalid verification code." };
+        return {
+          success: false,
+          error: data.error || "The verification code is incorrect or expired.",
+        };
       }
 
       setUser(data.user);
@@ -101,12 +127,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
       localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
 
-      // Set cookie for edge routing / middleware if needed
-      document.cookie = `civion_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
-
       return { success: true };
-    } catch (err) {
-      return { success: false, error: "Network error during verification." };
+    } catch {
+      return {
+        success: false,
+        error: "Network error during verification. Please try again.",
+      };
     }
   };
 
@@ -125,8 +151,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         token,
         isLoading,
-        requestOtp,
-        verifyOtp,
+        sendEmailOtp,
+        verifyEmailOtp,
         logout,
       }}
     >

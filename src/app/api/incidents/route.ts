@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       if (payload) {
         reporterId = payload.userId;
         reporterName = payload.name;
-        reporterPhone = payload.phone;
+        reporterPhone = payload.phone || "";
       }
     }
 

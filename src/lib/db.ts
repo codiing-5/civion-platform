@@ -30,6 +30,13 @@ class CivionDataStore {
     ...DEMO_USERS,
   };
 
+  public findUserByEmail(email: string): User | undefined {
+    const cleanEmail = email.trim().toLowerCase();
+    return Object.values(this.users).find((u) => {
+      return u.email?.toLowerCase() === cleanEmail;
+    });
+  }
+
   public findUserByPhone(phone: string): User | undefined {
     const cleanPhone = phone.replace(/\D/g, "").slice(-10);
     return Object.values(this.users).find((u) => {
@@ -42,19 +49,21 @@ class CivionDataStore {
     return this.users[id];
   }
 
-  public createUser(data: { phone: string; name: string }): User {
-    const cleanPhone = data.phone.replace(/\D/g, "").slice(-10);
-    const existing = this.findUserByPhone(cleanPhone);
-    if (existing) {
-      existing.name = data.name;
-      return existing;
+  public createUser(data: { email?: string; name: string; phone?: string; role?: any }): User {
+    if (data.email) {
+      const existing = this.findUserByEmail(data.email);
+      if (existing) {
+        if (data.name) existing.name = data.name;
+        return existing;
+      }
     }
 
     const newUser: User = {
       id: `usr-citizen-${Date.now()}`,
       name: data.name,
-      phone: cleanPhone,
-      role: "CITIZEN",
+      email: data.email?.trim().toLowerCase(),
+      phone: data.phone,
+      role: data.role || "CITIZEN",
       createdAt: new Date().toISOString(),
     };
 

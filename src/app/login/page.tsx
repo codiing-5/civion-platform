@@ -1,33 +1,36 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
-  Phone,
+  Mail,
   ShieldCheck,
   ArrowRight,
-  Sparkles,
-  CheckCircle2,
   AlertCircle,
   Building2,
-  Lock,
   User as UserIcon,
+  RotateCcw,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function LoginPage() {
-  const { user, requestOtp, verifyOtp, isLoading } = useAuth();
+  const { user, sendEmailOtp, verifyEmailOtp, isLoading } = useAuth();
   const router = useRouter();
 
-  const [step, setStep] = useState<"PHONE" | "OTP" | "NAME">("PHONE");
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<"EMAIL" | "OTP" | "NAME">("EMAIL");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [fullName, setFullName] = useState("");
   const [isExistingUser, setIsExistingUser] = useState(false);
-  const [demoOtpCode, setDemoOtpCode] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+
+  // Resend cooldown timer
+  const [cooldown, setCooldown] = useState(0);
+  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   // If already logged in, redirect to dashboard
   useEffect(() => {
@@ -36,18 +39,47 @@ export default function LoginPage() {
     }
   }, [user, isLoading, router]);
 
-  const handlePhoneSubmit = async (e: React.FormEvent) => {
+  // Handle countdown interval for resend cooldown
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  // Focus first OTP input when transitioning to OTP step
+  useEffect(() => {
+    if (step === "OTP") {
+      setTimeout(() => {
+        otpInputsRef.current[0]?.focus();
+      }, 100);
+    }
+  }, [step]);
+
+  const validateEmailFormat = (val: string) => {
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+    return emailRegex.test(val.trim().toLowerCase());
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessNotice(null);
 
-    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
-    if (cleanPhone.length !== 10) {
-      setErrorMessage("Please enter a valid 10-digit mobile number.");
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      setErrorMessage("Please enter your email address.");
+      return;
+    }
+
+    if (!validateEmailFormat(cleanEmail)) {
+      setErrorMessage("Please enter a valid email address (e.g. user@example.com).");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await requestOtp(cleanPhone);
+    const res = await sendEmailOtp(cleanEmail);
     setIsSubmitting(false);
 
     if (!res.success) {
@@ -55,17 +87,83 @@ export default function LoginPage() {
       return;
     }
 
-    setIsExistingUser(res.isExistingUser);
-    setDemoOtpCode(res.demoOtp || "123456");
+    setIsExistingUser(!!res.isExistingUser);
+    setCooldown(res.cooldownSeconds || 60);
     setStep("OTP");
+    setOtp(["", "", "", "", "", ""]);
+  };
+
+  const handleResendOtp = async () => {
+    if (cooldown > 0 || isSubmitting) return;
+
+    setErrorMessage(null);
+    setSuccessNotice(null);
+    setIsSubmitting(true);
+
+    const res = await sendEmailOtp(email.trim().toLowerCase());
+    setIsSubmitting(false);
+
+    if (!res.success) {
+      setErrorMessage(res.error || "Unable to resend verification code.");
+      return;
+    }
+
+    setCooldown(res.cooldownSeconds || 60);
+    setSuccessNotice("A fresh verification code has been sent to your email.");
+  };
+
+  // Handle individual OTP digit changes
+  const handleOtpChange = (index: number, value: string) => {
+    // Keep only numbers
+    const cleanDigit = value.replace(/\D/g, "");
+
+    if (cleanDigit.length > 1) {
+      // User pasted into a single digit box
+      handleOtpPaste(cleanDigit);
+      return;
+    }
+
+    const newOtp = [...otp];
+    newOtp[index] = cleanDigit;
+    setOtp(newOtp);
+    if (errorMessage) setErrorMessage(null);
+
+    // Auto-advance to next box if filled
+    if (cleanDigit && index < 5) {
+      otpInputsRef.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpInputsRef.current[index - 1]?.focus();
+    }
+  };
+
+  const handleOtpPaste = (pastedText: string) => {
+    const digits = pastedText.replace(/\D/g, "").slice(0, 6).split("");
+    if (digits.length === 0) return;
+
+    const newOtp = ["", "", "", "", "", ""];
+    digits.forEach((d, idx) => {
+      if (idx < 6) newOtp[idx] = d;
+    });
+    setOtp(newOtp);
+    if (errorMessage) setErrorMessage(null);
+
+    // Focus on the next available box or the last box
+    const nextIndex = Math.min(digits.length, 5);
+    otpInputsRef.current[nextIndex]?.focus();
   };
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessNotice(null);
 
-    if (otp.trim().length !== 6) {
-      setErrorMessage("Please enter the 6-digit verification code.");
+    const otpCode = otp.join("");
+    if (otpCode.length !== 6) {
+      setErrorMessage("Please enter all 6 digits of the verification code.");
       return;
     }
 
@@ -75,7 +173,7 @@ export default function LoginPage() {
       return;
     }
 
-    await executeVerification();
+    await executeVerification(otpCode);
   };
 
   const handleNameSubmit = async (e: React.FormEvent) => {
@@ -83,32 +181,27 @@ export default function LoginPage() {
     setErrorMessage(null);
 
     if (!fullName.trim()) {
-      setErrorMessage("Please enter your name.");
+      setErrorMessage("Please enter your full name.");
       return;
     }
 
-    await executeVerification(fullName.trim());
+    await executeVerification(otp.join(""), fullName.trim());
   };
 
-  const executeVerification = async (nameToSave?: string) => {
+  const executeVerification = async (otpCode: string, nameToSave?: string) => {
     setIsSubmitting(true);
-    const res = await verifyOtp(phone, otp, nameToSave || fullName);
+    const res = await verifyEmailOtp(email.trim().toLowerCase(), otpCode, nameToSave || fullName);
     setIsSubmitting(false);
 
     if (!res.success) {
-      setErrorMessage(res.error || "The code entered is invalid. Please try again.");
+      setErrorMessage(res.error || "The code entered is invalid or has expired.");
       return;
     }
 
     router.replace("/dashboard");
   };
 
-  const fillDemoOtp = () => {
-    if (demoOtpCode) {
-      setOtp(demoOtpCode);
-      setErrorMessage(null);
-    }
-  };
+  const fullOtpString = otp.join("");
 
   return (
     <div className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -119,18 +212,23 @@ export default function LoginPage() {
             <Building2 className="w-8 h-8" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            {step === "PHONE" && "Enter your mobile number"}
-            {step === "OTP" && "Enter verification code"}
+            {step === "EMAIL" && "Sign in to Civion"}
+            {step === "OTP" && "Check your email"}
             {step === "NAME" && "What is your name?"}
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            {step === "PHONE" && "We'll send you a fast 6-digit code to log in."}
-            {step === "OTP" && `Code sent to +91 ${phone}`}
-            {step === "NAME" && "Help municipal officers address you correctly."}
+            {step === "EMAIL" && "Enter your email address to receive a verification code."}
+            {step === "OTP" && (
+              <span>
+                We sent a 6-digit verification code to{" "}
+                <strong className="text-slate-900 dark:text-slate-200 font-semibold">{email}</strong>
+              </span>
+            )}
+            {step === "NAME" && "Help municipal ward officers address you correctly."}
           </p>
         </div>
 
-        {/* Error notice */}
+        {/* Feedback alerts */}
         {errorMessage && (
           <div
             role="alert"
@@ -141,126 +239,138 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* Step 1: Phone Input */}
-        {step === "PHONE" && (
-          <form onSubmit={handlePhoneSubmit} className="space-y-6">
+        {successNotice && (
+          <div
+            role="status"
+            className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300 text-sm flex items-start gap-3 animate-in fade-in"
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
+            <p className="font-medium">{successNotice}</p>
+          </div>
+        )}
+
+        {/* Step 1: Email Input */}
+        {step === "EMAIL" && (
+          <form onSubmit={handleEmailSubmit} className="space-y-6">
             <div>
               <label
-                htmlFor="phone-input"
+                htmlFor="email-input"
                 className="block text-sm font-bold text-slate-900 dark:text-slate-200 mb-2"
               >
-                Mobile Number
+                Email address
               </label>
-              <div className="relative flex rounded-2xl shadow-sm">
-                <span className="inline-flex items-center px-4 rounded-l-2xl border border-r-0 border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold text-base sm:text-lg">
-                  +91
-                </span>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                  <Mail className="w-5 h-5" />
+                </div>
                 <input
-                  id="phone-input"
-                  type="tel"
-                  maxLength={10}
-                  autoComplete="tel-national"
+                  id="email-input"
+                  type="email"
+                  autoComplete="email"
                   autoFocus
-                  placeholder="9876543210"
-                  value={phone}
+                  placeholder="name@example.com"
+                  value={email}
                   onChange={(e) => {
-                    const cleaned = e.target.value.replace(/\D/g, "").slice(0, 10);
-                    setPhone(cleaned);
+                    setEmail(e.target.value);
                     if (errorMessage) setErrorMessage(null);
                   }}
-                  className="flex-1 min-h-[52px] px-4 rounded-r-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-lg font-medium tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full min-h-[52px] pl-12 pr-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting || phone.length !== 10}
+              disabled={isSubmitting || !email.trim()}
               className="w-full min-h-[52px] px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-base shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
             >
-              <span>{isSubmitting ? "Sending code…" : "Get Verification Code"}</span>
+              <span>{isSubmitting ? "Sending verification code…" : "Send verification code"}</span>
               {!isSubmitting && <ArrowRight className="w-5 h-5" />}
             </button>
           </form>
         )}
 
-        {/* Step 2: OTP Input */}
+        {/* Step 2: 6-Digit OTP Input */}
         {step === "OTP" && (
           <form onSubmit={handleOtpSubmit} className="space-y-6">
             <div>
               <label
-                htmlFor="otp-input"
-                className="block text-sm font-bold text-slate-900 dark:text-slate-200 mb-2"
+                htmlFor="otp-0"
+                className="block text-sm font-bold text-slate-900 dark:text-slate-200 mb-3 text-center"
               >
-                6-Digit Verification Code
+                Enter 6-digit verification code
               </label>
-              <input
-                id="otp-input"
-                type="text"
-                maxLength={6}
-                autoFocus
-                placeholder="123456"
-                value={otp}
-                onChange={(e) => {
-                  const cleaned = e.target.value.replace(/\D/g, "").slice(0, 6);
-                  setOtp(cleaned);
-                  if (errorMessage) setErrorMessage(null);
-                }}
-                className="w-full min-h-[52px] text-center text-2xl font-bold tracking-[0.4em] px-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
 
-              {/* Demo auto-fill convenience */}
-              {demoOtpCode && (
-                <div className="mt-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 flex items-center justify-between">
-                  <div className="text-xs text-blue-800 dark:text-blue-300">
-                    <span>Demo Code: </span>
-                    <strong className="font-mono font-bold text-sm">
-                      {demoOtpCode}
-                    </strong>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={fillDemoOtp}
-                    className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
-                  >
-                    Auto-Fill
-                  </button>
-                </div>
-              )}
+              {/* 6 Individual Digit Boxes with Auto-Focus and Paste Support */}
+              <div
+                className="flex items-center justify-between gap-2 sm:gap-3"
+                onPaste={(e) => {
+                  e.preventDefault();
+                  handleOtpPaste(e.clipboardData.getData("text"));
+                }}
+              >
+                {otp.map((digit, idx) => (
+                  <input
+                    key={idx}
+                    id={`otp-${idx}`}
+                    ref={(el) => {
+                      otpInputsRef.current[idx] = el;
+                    }}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                    className="w-11 h-13 sm:w-13 sm:h-14 text-center text-xl sm:text-2xl font-bold rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                    aria-label={`Digit ${idx + 1}`}
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 pt-2">
               <button
                 type="submit"
-                disabled={isSubmitting || otp.length !== 6}
+                disabled={isSubmitting || fullOtpString.length !== 6}
                 className="w-full min-h-[52px] px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-base shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
               >
-                <span>
-                  {isSubmitting
-                    ? "Checking code…"
-                    : isExistingUser
-                    ? "Verify & Open Dashboard"
-                    : "Continue"}
-                </span>
+                <span>{isSubmitting ? "Verifying…" : "Verify and continue"}</span>
                 {!isSubmitting && <ArrowRight className="w-5 h-5" />}
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("PHONE");
-                  setOtp("");
-                  setErrorMessage(null);
-                }}
-                className="w-full py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
-              >
-                Change mobile number
-              </button>
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={cooldown > 0 || isSubmitting}
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>
+                    {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("EMAIL");
+                    setOtp(["", "", "", "", "", ""]);
+                    setErrorMessage(null);
+                    setSuccessNotice(null);
+                  }}
+                  className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                >
+                  Change email
+                </button>
+              </div>
             </div>
           </form>
         )}
 
-        {/* Step 3: Full Name (New Users) */}
+        {/* Step 3: Full Name Input (New User Onboarding) */}
         {step === "NAME" && (
           <form onSubmit={handleNameSubmit} className="space-y-6">
             <div>
@@ -268,7 +378,7 @@ export default function LoginPage() {
                 htmlFor="name-input"
                 className="block text-sm font-bold text-slate-900 dark:text-slate-200 mb-2"
               >
-                Full Name
+                Full name
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
@@ -284,7 +394,7 @@ export default function LoginPage() {
                     setFullName(e.target.value);
                     if (errorMessage) setErrorMessage(null);
                   }}
-                  className="w-full min-h-[52px] pl-12 pr-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full min-h-[52px] pl-12 pr-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-base font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -294,16 +404,16 @@ export default function LoginPage() {
               disabled={isSubmitting || !fullName.trim()}
               className="w-full min-h-[52px] px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-base shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
             >
-              <span>{isSubmitting ? "Creating your account…" : "Complete Sign Up"}</span>
+              <span>{isSubmitting ? "Creating account…" : "Complete sign up"}</span>
               {!isSubmitting && <ArrowRight className="w-5 h-5" />}
             </button>
           </form>
         )}
 
-        {/* Privacy Note */}
+        {/* Privacy notice */}
         <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
           <ShieldCheck className="w-4 h-4 text-emerald-500" />
-          <span>Your number is private and never shared publicly.</span>
+          <span>Your email is securely stored and never shared publicly.</span>
         </div>
       </div>
     </div>

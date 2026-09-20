@@ -7,7 +7,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "civion_citizen_platform_secret_202
 export interface TokenPayload {
   userId: string;
   name: string;
-  phone: string;
+  email: string;
+  phone?: string;
   role: Role;
   wardId?: number;
 }
@@ -19,6 +20,7 @@ export function signRoleToken(user: User): string {
   const payload: TokenPayload = {
     userId: user.id,
     name: user.name,
+    email: user.email || "",
     phone: user.phone || "",
     role: user.role || "CITIZEN",
     wardId: user.wardId,

@@ -83,7 +83,7 @@ export const Footer: React.FC = () => {
               Citizen Privacy
             </h4>
             <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              Your phone number and personal details are strictly protected and never displayed on public community maps.
+              Your email and personal details are strictly protected and never displayed on public community maps.
             </p>
           </div>
         </div>

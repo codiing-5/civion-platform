@@ -23,8 +23,8 @@ export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export interface User {
   id: string;
   name: string;
-  phone: string;
   email?: string;
+  phone?: string;
   role: Role;
   wardId?: number;
   avatarUrl?: string;
