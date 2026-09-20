@@ -62,6 +62,8 @@ export default function LoginPage() {
     return emailRegex.test(val.trim().toLowerCase());
   };
 
+  const [demoOtpCode, setDemoOtpCode] = useState<string | null>(null);
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -89,6 +91,9 @@ export default function LoginPage() {
 
     setIsExistingUser(!!res.isExistingUser);
     setCooldown(res.cooldownSeconds || 60);
+    if (res.devOtp) {
+      setDemoOtpCode(res.devOtp);
+    }
     setStep("OTP");
     setOtp(["", "", "", "", "", ""]);
   };
@@ -109,7 +114,18 @@ export default function LoginPage() {
     }
 
     setCooldown(res.cooldownSeconds || 60);
-    setSuccessNotice("A fresh verification code has been sent to your email.");
+    if (res.devOtp) {
+      setDemoOtpCode(res.devOtp);
+    }
+    setSuccessNotice("A fresh verification code has been generated.");
+  };
+
+  const fillDemoOtp = () => {
+    if (demoOtpCode) {
+      const digits = demoOtpCode.split("").slice(0, 6);
+      setOtp(digits);
+      setErrorMessage(null);
+    }
   };
 
   // Handle individual OTP digit changes
@@ -328,6 +344,25 @@ export default function LoginPage() {
                   />
                 ))}
               </div>
+
+              {/* Dev mode helper when Resend API key is unconfigured */}
+              {demoOtpCode && (
+                <div className="mt-3.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-center justify-between animate-in fade-in">
+                  <div className="text-xs text-amber-900 dark:text-amber-200">
+                    <span className="font-medium text-amber-700 dark:text-amber-400">Dev Code: </span>
+                    <strong className="font-mono font-bold text-sm tracking-wider">
+                      {demoOtpCode}
+                    </strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fillDemoOtp}
+                    className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition-all"
+                  >
+                    Auto-Fill
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3 pt-2">

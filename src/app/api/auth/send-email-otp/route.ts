@@ -127,13 +127,20 @@ export async function POST(req: NextRequest) {
   const existingUser = db.findUserByEmail(normalizedEmail);
   const isExistingUser = !!existingUser;
 
-  // 7. Return Secure Sanitized Response (NEVER leak OTP or secrets)
+  // 7. Return Secure Sanitized Response (includes dev helper only in local development when unconfigured)
+  const isDevWithoutResend =
+    process.env.NODE_ENV !== "production" &&
+    (!process.env.RESEND_API_KEY || !process.env.RESEND_API_KEY.startsWith("re_"));
+
   return NextResponse.json(
     {
       success: true,
-      message: "Verification code sent to your email address.",
+      message: isDevWithoutResend
+        ? "Development Mode: Verification code generated and logged."
+        : "Verification code sent to your email address.",
       isExistingUser,
       cooldownSeconds: generated.cooldownSeconds,
+      ...(isDevWithoutResend ? { devOtp: generated.otp } : {}),
     },
     {
       status: 200,

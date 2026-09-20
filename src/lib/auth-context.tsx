@@ -12,6 +12,7 @@ interface AuthContextType {
     success: boolean;
     isExistingUser?: boolean;
     cooldownSeconds?: number;
+    devOtp?: string;
     error?: string;
   }>;
   verifyEmailOtp: (
@@ -92,6 +93,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         success: true,
         isExistingUser: data.isExistingUser,
         cooldownSeconds: data.cooldownSeconds || 60,
+        devOtp: data.devOtp,
       };
     } catch {
       return {
