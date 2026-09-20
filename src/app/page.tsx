@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { ImageComparisonSlider } from "@/components/incidents/ImageComparisonSlider";
+import { ResolvedIncidentCard } from "@/components/incidents/ResolvedIncidentCard";
+import { RESOLVED_SHOWCASE_INCIDENTS } from "@/lib/resolved-showcase-data";
 import {
   Camera,
   MapPin,
@@ -19,32 +20,12 @@ import {
 
 export default function LandingPage() {
   const { user } = useAuth();
-  const [activeProofIndex, setActiveProofIndex] = useState(0);
+  const [filterCategory, setFilterCategory] = useState<"ALL" | "sanitation" | "road">("ALL");
 
-  const proofExamples = [
-    {
-      title: "Asphalt Pothole Cluster Resurfacing",
-      location: "Mavoor Road Junction, Kozhikode",
-      ticketNumber: "CIV-2204",
-      beforeImageUrl:
-        "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=1000&q=80",
-      afterImageUrl:
-        "https://images.unsplash.com/photo-1590486803833-1c5dc8ddd4c8?auto=format&fit=crop&w=1000&q=80",
-      resolutionNotes:
-        "Ward Road Squad filled 28cm crater cluster, compacted sub-base, and laid fresh bitumen overlay.",
-    },
-    {
-      title: "Illegal Solid Waste Dumping Clearance",
-      location: "South Beach Promenade, Kozhikode",
-      ticketNumber: "CIV-1401",
-      beforeImageUrl:
-        "https://images.unsplash.com/photo-1611288875785-5a50785ffac1?auto=format&fit=crop&w=1000&q=80",
-      afterImageUrl:
-        "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80",
-      resolutionNotes:
-        "Sanitation crew collected 420kg commercial debris, sanitized pavement, and installed public warning sign.",
-    },
-  ];
+  const displayedIncidents = RESOLVED_SHOWCASE_INCIDENTS.filter((inc) => {
+    if (filterCategory === "ALL") return true;
+    return inc.category === filterCategory;
+  });
 
   const categories = [
     {
@@ -208,8 +189,8 @@ export default function LandingPage() {
       </section>
 
       {/* Real Transformations Before & After Showcase */}
-      <section className="py-16 md:py-24 bg-slate-50/50 dark:bg-[#0B1220] transition-colors">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-16 md:py-24 bg-slate-50/60 dark:bg-[#0B1220] transition-colors">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 block">
               Citizen Impact
@@ -220,35 +201,53 @@ export default function LandingPage() {
             <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg">
               See how civic reports are resolved on the ground by municipal work teams.
             </p>
-          </div>
 
-          {/* Switcher tabs */}
-          <div className="flex items-center justify-center gap-2 mb-6">
-            {proofExamples.map((proof, idx) => (
+            {/* Clear Municipal Category Tabs */}
+            <div className="flex items-center justify-center gap-2 mt-6">
               <button
-                key={proof.title}
                 type="button"
-                onClick={() => setActiveProofIndex(idx)}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-                  activeProofIndex === idx
+                onClick={() => setFilterCategory("ALL")}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  filterCategory === "ALL"
+                    ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md"
+                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                All Fixes
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterCategory("sanitation")}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
+                  filterCategory === "sanitation"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
+                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                <span>🗑️</span>
+                <span>Sanitation</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterCategory("road")}
+                className={`min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 ${
+                  filterCategory === "road"
                     ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
                     : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
                 }`}
               >
-                {proof.title.split(" ")[0]} Fix
+                <span>🛣️</span>
+                <span>Road Repair</span>
               </button>
-            ))}
+            </div>
           </div>
 
-          {/* Interactive Slider */}
-          <ImageComparisonSlider
-            title={proofExamples[activeProofIndex].title}
-            location={proofExamples[activeProofIndex].location}
-            ticketNumber={proofExamples[activeProofIndex].ticketNumber}
-            beforeImageUrl={proofExamples[activeProofIndex].beforeImageUrl}
-            afterImageUrl={proofExamples[activeProofIndex].afterImageUrl}
-            resolutionNotes={proofExamples[activeProofIndex].resolutionNotes}
-          />
+          {/* 2-Column Responsive Grid of Authoritative Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+            {displayedIncidents.map((incident) => (
+              <ResolvedIncidentCard key={incident.id} incident={incident} />
+            ))}
+          </div>
         </div>
       </section>
 
