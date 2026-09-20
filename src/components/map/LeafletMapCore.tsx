@@ -77,6 +77,19 @@ export const LeafletMapCore: React.FC<LeafletMapCoreProps> = ({
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
   const kozhikodeCenter: [number, number] = [11.2588, 75.7804];
 
+  const cartoApiKey = process.env.NEXT_PUBLIC_CARTO_API_KEY;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && !cartoApiKey) {
+      console.warn(
+        "[Civion Map] NEXT_PUBLIC_CARTO_API_KEY is not configured. To enable high-resolution CARTO basemap tiles without key notices, add NEXT_PUBLIC_CARTO_API_KEY to your .env.local file or Vercel Environment Variables."
+      );
+    }
+  }, [cartoApiKey]);
+
+  const keyParam = cartoApiKey ? `?key=${encodeURIComponent(cartoApiKey)}` : "";
+  const tileUrl = `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${keyParam}`;
+
   return (
     <div className="w-full h-[550px]">
       <MapContainer
@@ -89,8 +102,8 @@ export const LeafletMapCore: React.FC<LeafletMapCoreProps> = ({
 
         {/* CartoDB Dark Matter High-Performance Map Tiles */}
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url={tileUrl}
           maxZoom={19}
         />
 

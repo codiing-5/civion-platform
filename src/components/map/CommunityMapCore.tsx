@@ -75,10 +75,21 @@ export const CommunityMapCore: React.FC<CommunityMapCoreProps> = ({
   const defaultCenter: [number, number] = [11.2588, 75.7804]; // Kozhikode City Center
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
 
-  // CartoDB Voyager for light mode, Dark Matter for dark mode
+  const cartoApiKey = process.env.NEXT_PUBLIC_CARTO_API_KEY;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && !cartoApiKey) {
+      console.warn(
+        "[Civion Map] NEXT_PUBLIC_CARTO_API_KEY is not configured. To enable high-resolution CARTO basemap tiles without key notices, add NEXT_PUBLIC_CARTO_API_KEY to your .env.local file or Vercel Environment Variables."
+      );
+    }
+  }, [cartoApiKey]);
+
+  // CartoDB Voyager for light mode, Dark Matter for dark mode with optional API key
+  const keyParam = cartoApiKey ? `?key=${encodeURIComponent(cartoApiKey)}` : "";
   const tileUrl = isDarkMode
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
+    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${keyParam}`
+    : `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${keyParam}`;
 
   return (
     <div className="w-full h-full min-h-[500px]">
@@ -91,7 +102,7 @@ export const CommunityMapCore: React.FC<CommunityMapCoreProps> = ({
         <MapSync target={selectedIncident} />
 
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url={tileUrl}
           maxZoom={19}
         />
