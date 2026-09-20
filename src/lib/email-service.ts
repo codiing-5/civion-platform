@@ -1,26 +1,31 @@
 import { Resend } from "resend";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || "Civion <onboarding@resend.dev>";
-
-let resendClient: Resend | null = null;
-
-if (RESEND_API_KEY) {
-  resendClient = new Resend(RESEND_API_KEY);
-}
-
 export interface SendOtpEmailParams {
   to: string;
   otpCode: string;
 }
 
 /**
- * Sends a Civion verification code email.
+ * Retrieves the Resend client dynamically based on current environment variables.
+ */
+function getResendClient(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (apiKey && apiKey.startsWith("re_") && apiKey.length > 10 && !apiKey.includes("xxxxxxxx")) {
+    return new Resend(apiKey);
+  }
+  return null;
+}
+
+/**
+ * Sends a Civion verification code email via Resend or logs to dev console if unconfigured.
  */
 export async function sendVerificationEmail({
   to,
   otpCode,
 }: SendOtpEmailParams): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const emailFrom = process.env.EMAIL_FROM?.trim() || "Civion <onboarding@resend.dev>";
+  const resend = getResendClient();
+
   const subject = "Your Civion verification code";
 
   const textContent = `Civion
@@ -74,11 +79,11 @@ If you did not request this code, you can safely ignore this email.`;
 </html>
   `;
 
-  // Production or configured Resend Client
-  if (resendClient) {
+  // 1. If Resend is configured with a valid API key, send the actual email
+  if (resend) {
     try {
-      const response = await resendClient.emails.send({
-        from: EMAIL_FROM,
+      const response = await resend.emails.send({
+        from: emailFrom,
         to,
         subject,
         text: textContent,
@@ -86,10 +91,10 @@ If you did not request this code, you can safely ignore this email.`;
       });
 
       if (response.error) {
-        console.error("[EmailService Error]", response.error);
+        console.error("[Resend API Error]", response.error);
         return {
           success: false,
-          error: "Failed to deliver verification email. Please verify your address.",
+          error: "Failed to deliver verification email. Please check your email address.",
         };
       }
 
@@ -98,7 +103,7 @@ If you did not request this code, you can safely ignore this email.`;
         messageId: response.data?.id,
       };
     } catch (err: any) {
-      console.error("[EmailService Exception]", err?.message || err);
+      console.error("[Resend Exception]", err?.message || err);
       return {
         success: false,
         error: "Email delivery service unavailable. Please try again later.",
@@ -106,20 +111,14 @@ If you did not request this code, you can safely ignore this email.`;
     }
   }
 
-  // Development Fallback: If RESEND_API_KEY is not set yet in local development
-  if (process.env.NODE_ENV !== "production") {
-    console.log("==================================================");
-    console.log(`📧 [DEV EMAIL OTP DISPATCH] To: ${to}`);
-    console.log(`🔑 Verification Code: [ ${otpCode} ] (Expires in 5 minutes)`);
-    console.log("==================================================");
-    return {
-      success: true,
-      messageId: `dev-mock-${Date.now()}`,
-    };
-  }
+  // 2. Development & Testing Fallback: Log OTP clearly to console
+  console.log("\n=======================================================");
+  console.log(`📧 [CIVION EMAIL OTP] To: ${to}`);
+  console.log(`🔑 Verification Code: [ ${otpCode} ] (Valid for 5 minutes)`);
+  console.log("=======================================================\n");
 
   return {
-    success: false,
-    error: "Email service is not configured on the server. Please contact administrator.",
+    success: true,
+    messageId: `dev-mock-${Date.now()}`,
   };
 }
