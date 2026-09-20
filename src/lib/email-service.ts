@@ -92,9 +92,30 @@ If you did not request this code, you can safely ignore this email.`;
 
       if (response.error) {
         console.error("[Resend API Error]", response.error);
+
+        // In development mode, if Resend sandbox restricts to-address, fallback to console log
+        if (process.env.NODE_ENV !== "production") {
+          console.log("\n=======================================================");
+          console.log(`📧 [CIVION RESEND SANDBOX FALLBACK] To: ${to}`);
+          console.log(`🔑 Verification Code: [ ${otpCode} ] (Valid for 5 minutes)`);
+          console.log(`⚠️ Resend Note: ${response.error.message}`);
+          console.log("=======================================================\n");
+
+          return {
+            success: true,
+            messageId: `sandbox-dev-${Date.now()}`,
+          };
+        }
+
+        const isSandboxRestricted =
+          response.error.message?.includes("testing email address") ||
+          response.error.message?.includes("only send testing emails");
+
         return {
           success: false,
-          error: "Failed to deliver verification email. Please check your email address.",
+          error: isSandboxRestricted
+            ? "Resend test domain (onboarding@resend.dev) can only send emails to your registered Resend email address. To send to all citizens, verify your custom domain in Resend."
+            : "Failed to deliver verification email. Please check your email address.",
         };
       }
 
@@ -104,6 +125,15 @@ If you did not request this code, you can safely ignore this email.`;
       };
     } catch (err: any) {
       console.error("[Resend Exception]", err?.message || err);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`🔑 [Dev Fallback] Code: [ ${otpCode} ]`);
+        return {
+          success: true,
+          messageId: `dev-catch-${Date.now()}`,
+        };
+      }
+
       return {
         success: false,
         error: "Email delivery service unavailable. Please try again later.",
