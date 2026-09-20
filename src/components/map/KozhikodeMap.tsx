@@ -234,7 +234,7 @@ export const KozhikodeMap: React.FC<KozhikodeMapProps> = ({
                       <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-400">
                         <span>Ward {inc.wardNumber}</span>
                         <span className="text-cyan-400 font-semibold">
-                          Score: {Math.round(inc.confidenceScore * 100)}%
+                          Score: {Math.round((inc.confidenceScore ?? 0.85) * 100)}%
                         </span>
                       </div>
                     </div>

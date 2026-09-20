@@ -58,9 +58,9 @@ export const MunicipalExportPanel: React.FC<MunicipalExportPanelProps> = ({
       inc.severity,
       inc.wardNumber,
       `"${inc.address.replace(/"/g, '""')}"`,
-      `${Math.round(inc.confidenceScore * 100)}%`,
+      `${Math.round((inc.confidenceScore ?? 0.85) * 100)}%`,
       inc.isSlaBreached ? "YES" : "NO",
-      `"${inc.reporterName}"`,
+      `"${inc.reporterName || "Citizen"}"`,
       inc.createdAt,
       inc.resolvedAt || "N/A",
     ]);

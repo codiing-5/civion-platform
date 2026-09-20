@@ -1,168 +1,233 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Role } from "@/lib/types";
-import { 
-  ShieldCheck, 
-  Activity, 
-  MapPin, 
-  FileSpreadsheet, 
-  PlusCircle, 
-  Sun, 
-  Moon, 
-  Terminal,
-  Sparkles,
-  Building2
+import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
+import { ThemeToggle } from "./ThemeToggle";
+import {
+  Building2,
+  PlusCircle,
+  MapPin,
+  FileText,
+  PhoneCall,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  X,
+  User as UserIcon,
 } from "lucide-react";
 
-interface NavbarProps {
-  currentRole: Role;
-  onRoleChange: (role: Role) => void;
-  onOpenReportModal: () => void;
-  onOpenExportModal: () => void;
-  onOpenTerminal: () => void;
-  activeSection: string;
+interface NavLinkItem {
+  name: string;
+  href: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  isPrimary?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  currentRole,
-  onRoleChange,
-  onOpenReportModal,
-  onOpenExportModal,
-  onOpenTerminal,
-}) => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isLightMode, setIsLightMode] = useState(false);
+export const Navbar: React.FC = () => {
+  const { user, logout } = useAuth();
+  const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  const closeMenu = () => setMobileMenuOpen(false);
 
-  const toggleTheme = () => {
-    setIsLightMode(!isLightMode);
-    if (document.documentElement.classList.contains("dark")) {
-      document.documentElement.classList.remove("dark");
-      document.documentElement.classList.add("light");
-    } else {
-      document.documentElement.classList.remove("light");
-      document.documentElement.classList.add("dark");
-    }
-  };
+  const navLinks: NavLinkItem[] = user
+    ? [
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Report Problem", href: "/report", icon: PlusCircle, isPrimary: true },
+        { name: "Live Map", href: "/map", icon: MapPin },
+        { name: "My Reports", href: "/reports", icon: FileText },
+        { name: "Emergency", href: "/emergency", icon: PhoneCall },
+      ]
+    : [
+        { name: "Home", href: "/" },
+        { name: "How It Works", href: "/#how-it-works" },
+        { name: "Emergency Helplines", href: "/emergency", icon: PhoneCall },
+      ];
 
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-[#050508]/85 backdrop-blur-md border-b border-white/10 shadow-2xl shadow-black/50 py-3"
-          : "bg-transparent py-4"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        {/* Brand Identity */}
-        <div className="flex items-center gap-3">
-          <a href="#hero" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1px] shadow-lg shadow-cyan-500/20 group-hover:shadow-cyan-500/40 transition-all">
-              <div className="w-full h-full bg-[#070913] rounded-[11px] flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              </div>
+    <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-[#0B1220]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-20">
+          {/* Logo Brand */}
+          <Link
+            href={user ? "/dashboard" : "/"}
+            onClick={closeMenu}
+            className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
+          >
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-blue-600 dark:bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <Building2 className="w-6 h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-syne font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-cyan-300">
-                  CIVION
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 uppercase tracking-wider font-semibold">
-                  v1.4 PRO
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium tracking-wide">
-                Kozhikode Municipal Dispatch
-              </p>
+            <div className="flex flex-col">
+              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white">
+                Civion
+              </span>
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 -mt-1 hidden sm:block">
+                Citizen Reporting Platform
+              </span>
             </div>
-          </a>
-        </div>
+          </Link>
 
-        {/* Nordax Live Telemetry Pill */}
-        <div className="hidden lg:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/10 backdrop-blur-md shadow-inner">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-xs font-mono text-emerald-400 font-semibold tracking-wider">
-            ● PROTOCOL v1.0 • LIVE
-          </span>
-          <span className="text-slate-600">|</span>
-          <span className="text-xs font-mono text-slate-300">
-            GRID HEALTH: <strong className="text-cyan-400">99.4%</strong>
-          </span>
-          <span className="text-slate-600">|</span>
-          <span className="text-xs font-mono text-slate-400">
-            DEDUP: <strong className="text-indigo-400">&lt;50m</strong>
-          </span>
-        </div>
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1.5 lg:gap-2">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              const Icon = link.icon;
 
-        {/* Navigation Actions & Role Picker */}
-        <div className="flex items-center gap-2.5">
-          {/* Quick Nav Links */}
-          <nav className="hidden md:flex items-center gap-1 mr-2 text-xs font-medium text-slate-300">
-            <a
-              href="#map-section"
-              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors flex items-center gap-1.5"
-            >
-              <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-              Live Map
-            </a>
-            <a
-              href="#pipeline"
-              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              AI Pipeline
-            </a>
-            <button
-              onClick={onOpenExportModal}
-              className="px-3 py-1.5 rounded-lg hover:text-white hover:bg-white/5 transition-colors flex items-center gap-1.5"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-              Audit Exports
-            </button>
+              if (link.isPrimary) {
+                return (
+                  <Link
+                    key={link.name}
+                    href={link.href}
+                    className="min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm flex items-center gap-2 shadow-sm transition-all hover:shadow hover:shadow-blue-500/20 active:scale-[0.98]"
+                  >
+                    {Icon && <Icon className="w-4 h-4" />}
+                    <span>{link.name}</span>
+                  </Link>
+                );
+              }
+
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className={`min-h-[44px] px-3.5 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 ${
+                    isActive
+                      ? "bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 font-semibold"
+                      : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+                  }`}
+                >
+                  {Icon && <Icon className="w-4 h-4" />}
+                  <span>{link.name}</span>
+                </Link>
+              );
+            })}
           </nav>
 
-          {/* Terminal Console Trigger */}
-          <button
-            onClick={onOpenTerminal}
-            title="Open Developer Event Inspector"
-            className="p-2 rounded-lg bg-white/[0.04] border border-white/10 text-slate-300 hover:text-cyan-400 hover:bg-white/10 transition-colors"
-          >
-            <Terminal className="w-4 h-4" />
-          </button>
+          {/* Right Header Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeToggle />
 
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            title="Toggle theme"
-            className="p-2 rounded-lg bg-white/[0.04] border border-white/10 text-slate-300 hover:text-yellow-400 hover:bg-white/10 transition-colors"
-          >
-            {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-          </button>
+            {user ? (
+              <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <UserIcon className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 max-w-[120px] truncate">
+                    {user.name}
+                  </span>
+                </div>
+                <button
+                  onClick={logout}
+                  title="Log out"
+                  className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center justify-center"
+                  aria-label="Log out"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-sm font-semibold shadow-sm transition-all"
+              >
+                Login / Sign Up
+              </Link>
+            )}
 
-          {/* Report Incident CTA */}
-          <button
-            onClick={onOpenReportModal}
-            className="relative group overflow-hidden rounded-xl p-[1px] focus:outline-none"
-          >
-            <span className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 rounded-xl group-hover:opacity-100 transition-opacity"></span>
-            <span className="relative flex items-center gap-2 px-4 py-2 bg-[#080b14] rounded-[11px] text-xs font-semibold text-white group-hover:bg-[#0c1020] transition-colors shadow-lg">
-              <PlusCircle className="w-4 h-4 text-cyan-400 group-hover:rotate-90 transition-transform" />
-              Report Issue
-            </span>
-          </button>
+            {/* Mobile Hamburger Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden min-w-[44px] min-h-[44px] p-2.5 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none"
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B1220] px-4 pt-3 pb-6 space-y-2 shadow-xl animate-in slide-in-from-top-2 duration-200">
+          {user && (
+            <div className="p-3 mb-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                    {user.name}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    +91 {user.phone}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  closeMenu();
+                  logout();
+                }}
+                className="px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg"
+              >
+                Log Out
+              </button>
+            </div>
+          )}
+
+          {navLinks.map((link) => {
+            const isActive = pathname === link.href;
+            const Icon = link.icon;
+
+            if (link.isPrimary) {
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={closeMenu}
+                  className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-blue-600 text-white font-bold text-base flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {Icon && <Icon className="w-5 h-5" />}
+                  <span>{link.name}</span>
+                </Link>
+              );
+            }
+
+            return (
+              <Link
+                key={link.name}
+                href={link.href}
+                onClick={closeMenu}
+                className={`w-full min-h-[48px] px-4 py-3 rounded-xl text-base font-medium flex items-center gap-3 ${
+                  isActive
+                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold"
+                    : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                {Icon && <Icon className="w-5 h-5 text-slate-400 dark:text-slate-400" />}
+                <span>{link.name}</span>
+              </Link>
+            );
+          })}
+
+          {!user && (
+            <div className="pt-2">
+              <Link
+                href="/login"
+                onClick={closeMenu}
+                className="w-full min-h-[48px] px-4 py-3 rounded-xl bg-blue-600 text-white font-bold text-base flex items-center justify-center gap-2 shadow-sm"
+              >
+                Login / Sign Up
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 };

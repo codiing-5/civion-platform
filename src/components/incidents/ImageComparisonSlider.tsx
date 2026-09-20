@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useState, useRef, MouseEvent, TouchEvent } from "react";
-import Image from "next/image";
-import { CheckCircle2, ShieldCheck, Camera, Sparkles, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, Camera, SlidersHorizontal, MapPin } from "lucide-react";
 
 interface ImageComparisonSliderProps {
   beforeImageUrl: string;
   afterImageUrl: string;
-  ticketNumber: string;
+  ticketNumber?: string;
   title: string;
+  location?: string;
   resolutionNotes?: string;
-  officerName?: string;
-  resolvedDate?: string;
 }
 
 export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
@@ -19,9 +17,8 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
   afterImageUrl,
   ticketNumber,
   title,
+  location,
   resolutionNotes,
-  officerName,
-  resolvedDate,
 }) => {
   const [sliderPosition, setSliderPosition] = useState<number>(50); // percentage 0 - 100
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -48,22 +45,35 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
   };
 
   return (
-    <div className="rounded-2xl bg-[#090d1a] border border-white/10 p-6 backdrop-blur-md shadow-2xl">
+    <div className="rounded-3xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xl transition-colors">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 mb-5 gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800/80 mb-4 gap-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold">
-              RESOLVED &amp; VERIFIED
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Fixed &amp; Verified</span>
             </span>
-            <span className="font-mono text-xs text-slate-400">{ticketNumber}</span>
+            {ticketNumber && (
+              <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                {ticketNumber}
+              </span>
+            )}
           </div>
-          <h3 className="font-syne font-bold text-lg text-white">{title}</h3>
+          <h3 className="font-bold text-lg sm:text-xl text-slate-900 dark:text-white">
+            {title}
+          </h3>
+          {location && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-1">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{location}</span>
+            </p>
+          )}
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs font-mono text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-900/60 self-start sm:self-auto">
           <SlidersHorizontal className="w-4 h-4" />
-          <span>Drag Slider to Compare Proof</span>
+          <span>Drag slider to compare</span>
         </div>
       </div>
 
@@ -74,19 +84,19 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onTouchMove={handleTouchMove}
-        className="relative w-full h-[380px] sm:h-[460px] rounded-xl overflow-hidden cursor-ew-resize select-none border border-white/10 shadow-inner bg-black"
+        className="relative w-full h-[320px] sm:h-[420px] rounded-2xl overflow-hidden cursor-ew-resize select-none border border-slate-200 dark:border-slate-700 bg-slate-900"
       >
         {/* AFTER IMAGE (Background / Full Width) */}
         <div className="absolute inset-0 w-full h-full">
           <img
             src={afterImageUrl}
-            alt="Officer Resolution Proof"
+            alt="Repaired municipal infrastructure"
             className="w-full h-full object-cover"
           />
           {/* After Tag */}
-          <div className="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-lg bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 font-mono text-xs font-bold backdrop-blur-md flex items-center gap-1.5 shadow-lg">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            <span>AFTER: REPAIRED PROOF</span>
+          <div className="absolute top-4 right-4 z-20 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>AFTER: FIXED</span>
           </div>
         </div>
 
@@ -97,49 +107,39 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
         >
           <img
             src={beforeImageUrl}
-            alt="Citizen Reported Incident Proof"
+            alt="Reported problem"
             className="absolute inset-0 w-full h-full object-cover max-w-none"
             style={{
               width: containerRef.current ? `${containerRef.current.clientWidth}px` : "100%",
             }}
           />
           {/* Before Tag */}
-          <div className="absolute top-4 left-4 z-20 px-3 py-1.5 rounded-lg bg-rose-950/80 border border-rose-500/50 text-rose-300 font-mono text-xs font-bold backdrop-blur-md flex items-center gap-1.5 shadow-lg">
-            <Camera className="w-3.5 h-3.5 text-rose-400" />
-            <span>BEFORE: CITIZEN REPORT</span>
+          <div className="absolute top-4 left-4 z-20 px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold shadow-md flex items-center gap-1.5">
+            <Camera className="w-4 h-4" />
+            <span>BEFORE: REPORTED</span>
           </div>
         </div>
 
         {/* Vertical Divider Bar */}
         <div
-          className="absolute top-0 bottom-0 z-30 w-1 bg-white shadow-[0_0_15px_rgba(0,242,254,1)]"
+          className="absolute top-0 bottom-0 z-30 w-1 bg-white shadow-[0_0_12px_rgba(37,99,235,0.8)]"
           style={{ left: `${sliderPosition}%` }}
         >
-          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-cyan-400 border-2 border-white shadow-xl flex items-center justify-center text-slate-950">
+          <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-blue-600 border-2 border-white shadow-xl flex items-center justify-center text-white">
             <SlidersHorizontal className="w-4 h-4 rotate-90" />
           </div>
         </div>
       </div>
 
-      {/* Resolution Audit Footer */}
-      <div className="mt-5 p-4 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-        <div>
-          <div className="font-semibold text-slate-200">
-            Officer Notes:{" "}
-            <span className="text-slate-400 font-normal">
-              {resolutionNotes || "Site cleared, sanitized, and certified by Kozhikode Ward 14 Sanitation Squad."}
-            </span>
-          </div>
-          <div className="text-slate-500 text-[11px] mt-0.5">
-            Inspected by <strong className="text-slate-300">{officerName || "K. V. Suresh Kumar"}</strong>
-          </div>
+      {/* Resolution Notes Footer */}
+      {resolutionNotes && (
+        <div className="mt-4 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs sm:text-sm text-slate-700 dark:text-slate-300">
+          <strong className="text-emerald-600 dark:text-emerald-400">Resolution:</strong>{" "}
+          {resolutionNotes}
         </div>
-
-        <div className="flex items-center gap-2 text-emerald-400 font-mono text-[11px] bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-          <ShieldCheck className="w-4 h-4" />
-          <span>SLA Fulfilled &amp; Cryptographically Logged</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
+
+export default ImageComparisonSlider;

@@ -1,391 +1,312 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Role, Incident, Ward, User } from "@/lib/types";
-import { DEMO_USERS, SEED_INCIDENTS, SEED_WARDS } from "@/lib/seed-data";
-import { Navbar } from "@/components/layout/Navbar";
-import { QuickDemoBanner } from "@/components/layout/QuickDemoBanner";
-import { HeroSection } from "@/components/landing/HeroSection";
-import { BentoGrid } from "@/components/landing/BentoGrid";
-import { ProtocolPipeline } from "@/components/landing/ProtocolPipeline";
-import { KozhikodeMap } from "@/components/map/KozhikodeMap";
+import React, { useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/lib/auth-context";
 import { ImageComparisonSlider } from "@/components/incidents/ImageComparisonSlider";
-import { IncidentSubmitModal } from "@/components/incidents/IncidentSubmitModal";
-import { MunicipalExportPanel } from "@/components/analytics/MunicipalExportPanel";
-import { TerminalInspector } from "@/components/console/TerminalInspector";
-import { 
-  ShieldAlert, 
-  CheckCircle2, 
-  Clock, 
-  MapPin, 
-  Building2, 
-  RefreshCw, 
-  Sparkles, 
-  AlertCircle,
-  ExternalLink,
-  ChevronRight,
-  Shield,
-  Layers,
-  UploadCloud,
-  Check
+import {
+  Camera,
+  MapPin,
+  CheckCircle2,
+  ArrowRight,
+  ShieldCheck,
+  Sparkles,
+  PhoneCall,
+  Clock,
+  EyeOff,
+  SlidersHorizontal,
 } from "lucide-react";
 
-export default function CivionHomePage() {
-  const [currentRole, setCurrentRole] = useState<Role>("CITIZEN");
-  const [currentUser, setCurrentUser] = useState<User>(DEMO_USERS.citizen);
-  const [incidents, setIncidents] = useState<Incident[]>(SEED_INCIDENTS);
-  const [wards, setWards] = useState<Ward[]>(SEED_WARDS);
-  const [selectedIncident, setSelectedIncident] = useState<Incident>(SEED_INCIDENTS[0]);
+export default function LandingPage() {
+  const { user } = useAuth();
+  const [activeProofIndex, setActiveProofIndex] = useState(0);
 
-  // Modal states
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const proofExamples = [
+    {
+      title: "Asphalt Pothole Cluster Resurfacing",
+      location: "Mavoor Road Junction, Kozhikode",
+      ticketNumber: "CIV-2204",
+      beforeImageUrl:
+        "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=1000&q=80",
+      afterImageUrl:
+        "https://images.unsplash.com/photo-1590486803833-1c5dc8ddd4c8?auto=format&fit=crop&w=1000&q=80",
+      resolutionNotes:
+        "Ward Road Squad filled 28cm crater cluster, compacted sub-base, and laid fresh bitumen overlay.",
+    },
+    {
+      title: "Illegal Solid Waste Dumping Clearance",
+      location: "South Beach Promenade, Kozhikode",
+      ticketNumber: "CIV-1401",
+      beforeImageUrl:
+        "https://images.unsplash.com/photo-1611288875785-5a50785ffac1?auto=format&fit=crop&w=1000&q=80",
+      afterImageUrl:
+        "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80",
+      resolutionNotes:
+        "Sanitation crew collected 420kg commercial debris, sanitized pavement, and installed public warning sign.",
+    },
+  ];
 
-  // Notification Banner
-  const [toastMessage, setToastMessage] = useState<{
-    text: string;
-    type: "success" | "warning" | "info";
-  } | null>(null);
-
-  // Officer resolution action states
-  const [resolutionNotes, setResolutionNotes] = useState("");
-  const [isResolving, setIsResolving] = useState(false);
-
-  // Switch roles for judging mode
-  const handleRoleChange = async (role: Role) => {
-    setCurrentRole(role);
-    const roleKey = role === "CITIZEN" ? "citizen" : role === "OFFICER" ? "officer" : "admin";
-    setCurrentUser(DEMO_USERS[roleKey]);
-
-    setToastMessage({
-      text: `Switched session to ${role} Mode (${DEMO_USERS[roleKey].name}). Role Immutability active.`,
-      type: "info",
-    });
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
-  const handleIncidentSubmitSuccess = (
-    newInc: Incident,
-    isDuplicate: boolean,
-    duplicateMessage?: string
-  ) => {
-    setIncidents((prev) => [newInc, ...prev]);
-    setSelectedIncident(newInc);
-
-    setToastMessage({
-      text: isDuplicate
-        ? `Spatial Duplicate Detected: ${duplicateMessage}`
-        : `Ticket ${newInc.ticketNumber} ingested & dispatched to Ward ${newInc.wardNumber} Officer.`,
-      type: isDuplicate ? "warning" : "success",
-    });
-    setTimeout(() => setToastMessage(null), 5000);
-  };
-
-  // Officer action: Mark ticket as resolved
-  const handleResolveIncident = async (incidentId: string) => {
-    setIsResolving(true);
-    try {
-      const res = await fetch(`/api/incidents/${incidentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "RESOLVED",
-          resolvedNotes: resolutionNotes || "Ward officer repair squad completed resurfacing and clearance.",
-          resolutionPhotoUrl:
-            "https://images.unsplash.com/photo-1590486803833-1c5dc8ddd4c8?auto=format&fit=crop&w=800&q=80",
-          actorRole: currentRole,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setIncidents((prev) =>
-          prev.map((i) => (i.id === incidentId ? data.incident : i))
-        );
-        setSelectedIncident(data.incident);
-        setToastMessage({
-          text: `Ticket ${data.incident.ticketNumber} marked as RESOLVED with repair proof.`,
-          type: "success",
-        });
-        setTimeout(() => setToastMessage(null), 4000);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsResolving(false);
-    }
-  };
-
-  // Admin action: trigger SLA cron
-  const handleTriggerSlaCron = async () => {
-    try {
-      const res = await fetch("/api/cron/sla-escalation");
-      const data = await res.json();
-      setToastMessage({
-        text: `Vercel Cron Triggered: ${data.message}`,
-        type: data.escalatedCount > 0 ? "warning" : "success",
-      });
-      setTimeout(() => setToastMessage(null), 5000);
-
-      // Refresh list
-      const fetchInc = await fetch("/api/incidents");
-      const incData = await fetchInc.json();
-      if (incData.incidents) {
-        setIncidents(incData.incidents);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  const categories = [
+    {
+      icon: "🕳️",
+      title: "Pothole / Road Defect",
+      desc: "Report damaged roads, dangerous craters, or asphalt cracks.",
+    },
+    {
+      icon: "🗑️",
+      title: "Waste Dumping / Sanitation",
+      desc: "Flag uncollected garbage, overflow bins, or illegal debris.",
+    },
+    {
+      icon: "💡",
+      title: "Streetlight / Electrical",
+      desc: "Report unlit lamps, hanging cables, or dark street stretches.",
+    },
+    {
+      icon: "🚰",
+      title: "Water Pipeline Leak",
+      desc: "Report bursting municipal supply lines or public tap leaks.",
+    },
+    {
+      icon: "🌊",
+      title: "Drainage / Culvert Clog",
+      desc: "Report blocked stormwater drains or stagnant flood water.",
+    },
+    {
+      icon: "✏️",
+      title: "Other Municipal Issue",
+      desc: "Any other public problem in your local neighbourhood.",
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#050508] text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200">
-      {/* Quick Demo Pitch Header */}
-      <QuickDemoBanner
-        currentRole={currentRole}
-        onRoleChange={handleRoleChange}
-      />
+    <div className="flex flex-col w-full">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden pt-12 pb-16 md:pt-20 md:pb-24 bg-gradient-to-b from-blue-50/50 via-transparent to-transparent dark:from-blue-950/20 dark:via-transparent dark:to-transparent">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          {/* Civic Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100/80 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-semibold mb-6">
+            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <span>Citizen-First Municipal Platform</span>
+          </div>
 
-      {/* Global Navigation Header */}
-      <Navbar
-        currentRole={currentRole}
-        onRoleChange={handleRoleChange}
-        onOpenReportModal={() => setIsReportModalOpen(true)}
-        onOpenExportModal={() => setIsExportModalOpen(true)}
-        onOpenTerminal={() => setIsTerminalOpen(true)}
-        activeSection="home"
-      />
+          {/* Main Headline */}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-[1.15] mb-6">
+            Report local problems. <br className="hidden sm:inline" />
+            <span className="text-blue-600 dark:text-blue-500">
+              Help improve your community.
+            </span>
+          </h1>
 
-      {/* Notification Toast Banner */}
-      {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 max-w-md animate-bounce">
-          <div
-            className={`p-4 rounded-xl border backdrop-blur-md shadow-2xl flex items-start gap-3 ${
-              toastMessage.type === "success"
-                ? "bg-emerald-950/90 border-emerald-500/50 text-emerald-200"
-                : toastMessage.type === "warning"
-                ? "bg-amber-950/90 border-amber-500/50 text-amber-200"
-                : "bg-cyan-950/90 border-cyan-500/50 text-cyan-200"
-            }`}
-          >
-            {toastMessage.type === "success" ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-            ) : toastMessage.type === "warning" ? (
-              <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
-            ) : (
-              <Sparkles className="w-5 h-5 text-cyan-400 flex-shrink-0" />
-            )}
-            <div className="text-xs font-medium leading-relaxed">
-              {toastMessage.text}
+          {/* Supporting Text */}
+          <p className="max-w-2xl mx-auto text-base sm:text-xl text-slate-600 dark:text-slate-300 font-normal leading-relaxed mb-10">
+            Civion makes it easy to report potholes, waste, broken streetlights,
+            leaks and other local problems.
+          </p>
+
+          {/* Action CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-md mx-auto">
+            <Link
+              href={user ? "/dashboard" : "/login"}
+              className="w-full sm:w-auto min-h-[52px] px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base sm:text-lg shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2.5 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <span>{user ? "Open Dashboard" : "Login / Sign Up"}</span>
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+
+            <a
+              href="#how-it-works"
+              className="w-full sm:w-auto min-h-[52px] px-6 py-3.5 rounded-2xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-base border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-colors"
+            >
+              How It Works
+            </a>
+          </div>
+
+          {/* Quick Trust Highlights */}
+          <div className="mt-12 pt-8 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span>No passwords needed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <EyeOff className="w-4 h-4 text-blue-500" />
+              <span>Private & secure</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500" />
+              <span>Under 60 seconds</span>
             </div>
           </div>
         </div>
-      )}
+      </section>
 
-      {/* Main Sections */}
-      <main>
-        {/* 1. Hero Section with ProtoX Lighting */}
-        <HeroSection
-          onOpenReportModal={() => setIsReportModalOpen(true)}
-          onExploreMap={() => {
-            const el = document.getElementById("map-section");
-            el?.scrollIntoView({ behavior: "smooth" });
-          }}
-        />
-
-        {/* 2. Interactive Bento Grid with ProtoX Spotlight Mouse Tracking */}
-        <BentoGrid />
-
-        {/* 3. The 5-Stage Ingestion Pipeline */}
-        <ProtocolPipeline />
-
-        {/* 4. Live Kozhikode PostGIS Map View */}
-        <KozhikodeMap
-          incidents={incidents}
-          onSelectIncident={(inc) => setSelectedIncident(inc)}
-          selectedIncidentId={selectedIncident?.id}
-        />
-
-        {/* 5. Before/After Resolution Slider & Officer Action Dispatch Center */}
-        <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-2">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>GROUND-TRUTH VERIFICATION</span>
-            </div>
-            <h2 className="font-syne text-3xl sm:text-4xl font-extrabold text-white">
-              Before / After Resolution Verification
+      {/* How It Works Section */}
+      <section
+        id="how-it-works"
+        className="py-16 md:py-24 bg-white dark:bg-[#070C16] border-y border-slate-200/80 dark:border-slate-800/80 transition-colors"
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+              How It Works
             </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Tamper-proof visual comparison slider of citizen proof vs. officer repair certification.
+            <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg">
+              Three simple steps to report any problem in your neighbourhood.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* 2-Columns Slider */}
-            <div className="lg:col-span-2">
-              {selectedIncident && (
-                <ImageComparisonSlider
-                  beforeImageUrl={selectedIncident.citizenPhotoUrl}
-                  afterImageUrl={
-                    selectedIncident.resolutionPhotoUrl ||
-                    "https://images.unsplash.com/photo-1590486803833-1c5dc8ddd4c8?auto=format&fit=crop&w=800&q=80"
-                  }
-                  ticketNumber={selectedIncident.ticketNumber}
-                  title={selectedIncident.title}
-                  resolutionNotes={selectedIncident.resolvedNotes}
-                  officerName={selectedIncident.assignedOfficerName}
-                  resolvedDate={selectedIncident.resolvedAt}
-                />
-              )}
-            </div>
-
-            {/* Role Action Panel (Dynamic based on selected role) */}
-            <div className="rounded-2xl bg-[#090d1a] border border-white/10 p-6 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
-                  <span className="font-syne font-bold text-sm text-white flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-cyan-400" />
-                    Role-Scoped Action Portal
-                  </span>
-                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 uppercase font-semibold">
-                    {currentRole} ACTIVE
-                  </span>
-                </div>
-
-                <div className="space-y-4 text-xs text-slate-300">
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5">
-                    <span className="text-[11px] font-mono text-slate-400 block mb-1">
-                      SELECTED INCIDENT:
-                    </span>
-                    <strong className="text-white text-sm block">
-                      {selectedIncident?.ticketNumber}: {selectedIncident?.title}
-                    </strong>
-                    <p className="text-slate-400 text-[11px] mt-1">
-                      Ward {selectedIncident?.wardNumber} • {selectedIncident?.address}
-                    </p>
-                  </div>
-
-                  {/* OFFICER ACTIONS */}
-                  {currentRole === "OFFICER" && (
-                    <div className="space-y-3 pt-2">
-                      <label className="block font-mono text-[11px] text-indigo-300 font-semibold">
-                        OFFICER REPAIR NOTES / CERTIFICATION:
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={resolutionNotes}
-                        onChange={(e) => setResolutionNotes(e.target.value)}
-                        placeholder="Enter repair notes: e.g. Hot mix asphalt applied, compaction tested."
-                        className="w-full p-2.5 rounded-xl bg-black/50 border border-white/10 text-white text-xs focus:outline-none focus:border-indigo-400"
-                      />
-                      <button
-                        onClick={() => handleResolveIncident(selectedIncident.id)}
-                        disabled={isResolving}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
-                      >
-                        <Check className="w-4 h-4" />
-                        <span>Upload Resolution Proof &amp; Mark Resolved</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* ADMIN ACTIONS */}
-                  {currentRole === "ADMIN" && (
-                    <div className="space-y-3 pt-2">
-                      <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/30">
-                        <span className="font-mono text-[11px] text-purple-300 font-bold block mb-1">
-                          DIRECTOR SLA AUTOMATION:
-                        </span>
-                        <p className="text-[11px] text-slate-300">
-                          Manually trigger the hourly Vercel Cron sweep to audit overdue SLA tickets.
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleTriggerSlaCron}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                        <span>Execute SLA Escalation Audit</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* CITIZEN ACTIONS */}
-                  {currentRole === "CITIZEN" && (
-                    <div className="space-y-3 pt-2">
-                      <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30">
-                        <span className="font-mono text-[11px] text-cyan-300 font-bold block mb-1">
-                          CITIZEN TRANSPARENCY:
-                        </span>
-                        <p className="text-[11px] text-slate-300">
-                          Your submission has been verified by the AI pipeline with zero PII leakage.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setIsReportModalOpen(true)}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
-                      >
-                        <UploadCloud className="w-4 h-4" />
-                        <span>Report Another Ward Issue</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+            {/* Step 1 */}
+            <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col items-center text-center group hover:border-blue-500/50 transition-colors">
+              <div className="w-20 h-20 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-3xl mb-6 shadow-sm group-hover:scale-110 transition-transform">
+                📷
               </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">
+                Step 1
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                Take a photo
+              </h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
+                Show the local problem with a quick photo using your phone camera.
+              </p>
+            </div>
 
-              <div className="pt-4 border-t border-white/10 text-center">
-                <span className="text-[11px] font-mono text-slate-500">
-                  Switch roles anytime in the top Pitch Header
-                </span>
+            {/* Step 2 */}
+            <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col items-center text-center group hover:border-blue-500/50 transition-colors">
+              <div className="w-20 h-20 rounded-2xl bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-3xl mb-6 shadow-sm group-hover:scale-110 transition-transform">
+                📍
               </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                Step 2
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                Tell us where
+              </h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
+                Use your current location automatically or enter a nearby landmark.
+              </p>
             </div>
-          </div>
-        </section>
-      </main>
 
-      {/* Modals & Terminal Drawer */}
-      <IncidentSubmitModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        onSubmitSuccess={handleIncidentSubmitSuccess}
-        currentUser={currentUser}
-      />
-
-      <MunicipalExportPanel
-        isOpen={isExportModalOpen}
-        onClose={() => setIsExportModalOpen(false)}
-        incidents={incidents}
-        wards={wards}
-      />
-
-      <TerminalInspector
-        isOpen={isTerminalOpen}
-        onClose={() => setIsTerminalOpen(false)}
-      />
-
-      {/* Footer */}
-      <footer className="mt-20 border-t border-white/10 bg-[#04060b] py-12 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="font-syne font-bold text-base text-white tracking-wider">
-              CIVION
-            </span>
-            <span className="text-slate-600">|</span>
-            <span>Real People. Real Photos. Healthier Cities.</span>
-          </div>
-
-          <div className="text-center sm:text-right">
-            <div>
-              Created &amp; Architected by <strong className="text-cyan-400 font-semibold">Rojan Jose</strong>
-            </div>
-            <div className="text-slate-500 text-[11px] mt-0.5">
-              GitHub: <span className="font-mono text-slate-400">codiing-5/civion-platform</span> • Vercel Ready
+            {/* Step 3 */}
+            <div className="p-8 rounded-3xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col items-center text-center group hover:border-blue-500/50 transition-colors">
+              <div className="w-20 h-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-3xl mb-6 shadow-sm group-hover:scale-110 transition-transform">
+                ✅
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 mb-1">
+                Step 3
+              </span>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2">
+                Track the fix
+              </h3>
+              <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
+                See what is happening with your report as the work team fixes it.
+              </p>
             </div>
           </div>
         </div>
-      </footer>
+      </section>
+
+      {/* Real Transformations Before & After Showcase */}
+      <section className="py-16 md:py-24 bg-slate-50/50 dark:bg-[#0B1220] transition-colors">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-2 block">
+              Citizen Impact
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+              Real Problems. Real Fixes.
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg">
+              See how civic reports are resolved on the ground by municipal work teams.
+            </p>
+          </div>
+
+          {/* Switcher tabs */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {proofExamples.map((proof, idx) => (
+              <button
+                key={proof.title}
+                type="button"
+                onClick={() => setActiveProofIndex(idx)}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+                  activeProofIndex === idx
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                    : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
+                }`}
+              >
+                {proof.title.split(" ")[0]} Fix
+              </button>
+            ))}
+          </div>
+
+          {/* Interactive Slider */}
+          <ImageComparisonSlider
+            title={proofExamples[activeProofIndex].title}
+            location={proofExamples[activeProofIndex].location}
+            ticketNumber={proofExamples[activeProofIndex].ticketNumber}
+            beforeImageUrl={proofExamples[activeProofIndex].beforeImageUrl}
+            afterImageUrl={proofExamples[activeProofIndex].afterImageUrl}
+            resolutionNotes={proofExamples[activeProofIndex].resolutionNotes}
+          />
+        </div>
+      </section>
+
+      {/* Common Problems We Address */}
+      <section className="py-16 md:py-24 bg-white dark:bg-[#070C16] border-t border-slate-200/80 dark:border-slate-800/80">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+              What can you report?
+            </h2>
+            <p className="text-slate-600 dark:text-slate-300 text-base sm:text-lg">
+              Civion handles every everyday civic issue that affects your neighbourhood.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {categories.map((cat) => (
+              <div
+                key={cat.title}
+                className="p-6 rounded-2xl bg-slate-50 dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4 hover:border-blue-500/40 transition-colors"
+              >
+                <div className="text-3xl p-2.5 rounded-xl bg-white dark:bg-slate-800/80 shadow-sm shrink-0">
+                  {cat.icon}
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
+                    {cat.title}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {cat.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Civion / Citizen Promise */}
+      <section className="py-16 bg-blue-600 dark:bg-blue-600 text-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight mb-6">
+            Simple for everyone. Transparent for the community.
+          </h2>
+          <p className="max-w-2xl mx-auto text-blue-100 text-base sm:text-lg mb-10 leading-relaxed">
+            No complex paperwork, no bureaucratic queues. An easy tool designed
+            for elderly citizens, youth, and busy workers alike.
+          </p>
+
+          <Link
+            href={user ? "/report" : "/login"}
+            className="inline-flex min-h-[52px] px-8 py-3.5 rounded-2xl bg-white text-blue-700 hover:bg-blue-50 font-extrabold text-base sm:text-lg shadow-xl transition-all hover:scale-105 active:scale-95 items-center gap-2"
+          >
+            <span>Report a Problem Now</span>
+            <ArrowRight className="w-5 h-5" />
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

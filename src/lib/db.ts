@@ -1,36 +1,69 @@
-import { Incident, Ward, User, AuditLog, Status } from "./types";
+import { Incident, Ward, User, Status } from "./types";
 import { SEED_INCIDENTS, SEED_WARDS, DEMO_USERS } from "./seed-data";
 import { checkSpatialDeduplication } from "./spatial";
 
-// Global in-memory state for instant serverless execution and local demo persistence
+export interface AuditLog {
+  id: string;
+  incidentId: string;
+  action: string;
+  actorId: string;
+  actorName: string;
+  actorRole: any;
+  details?: string;
+  timestamp: string;
+}
+
+// Global data store for stateful demo & local persistence
 class CivionDataStore {
   private incidents: Incident[] = [...SEED_INCIDENTS];
   private wards: Ward[] = [...SEED_WARDS];
-  private users: Record<string, User> = { ...DEMO_USERS };
-  private auditLogs: AuditLog[] = [
-    {
-      id: "log-001",
-      incidentId: "civ-inc-001",
-      action: "STATUS_RESOLVED",
-      actorId: "usr-officer-14",
-      actorName: "K. V. Suresh Kumar",
-      actorRole: "OFFICER",
-      details: "Resolution proof photo uploaded. Site cleared and sanitized.",
-      timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
+  private auditLogs: AuditLog[] = [];
+  private users: Record<string, User> = {
+    "usr-citizen-01": {
+      id: "usr-citizen-01",
+      name: "Rohan Nair",
+      phone: "9895011223",
+      email: "rohan.nair@civion.org",
+      role: "CITIZEN",
+      createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
     },
-    {
-      id: "log-002",
-      incidentId: "civ-inc-004",
-      action: "SLA_BREACH_ESCALATED",
-      actorId: "system-cron",
-      actorName: "Vercel SLA Escalation Daemon",
-      actorRole: "ADMIN",
-      details: "Water leakage incident exceeded 24-hour SLA threshold. Auto-escalated to Municipal Director.",
-      timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-    },
-  ];
+    ...DEMO_USERS,
+  };
+
+  public findUserByPhone(phone: string): User | undefined {
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+    return Object.values(this.users).find((u) => {
+      const userClean = u.phone?.replace(/\D/g, "").slice(-10);
+      return userClean === cleanPhone;
+    });
+  }
+
+  public findUserById(id: string): User | undefined {
+    return this.users[id];
+  }
+
+  public createUser(data: { phone: string; name: string }): User {
+    const cleanPhone = data.phone.replace(/\D/g, "").slice(-10);
+    const existing = this.findUserByPhone(cleanPhone);
+    if (existing) {
+      existing.name = data.name;
+      return existing;
+    }
+
+    const newUser: User = {
+      id: `usr-citizen-${Date.now()}`,
+      name: data.name,
+      phone: cleanPhone,
+      role: "CITIZEN",
+      createdAt: new Date().toISOString(),
+    };
+
+    this.users[newUser.id] = newUser;
+    return newUser;
+  }
 
   public getIncidents(filters?: {
+    reporterId?: string;
     status?: string;
     category?: string;
     ward?: number;
@@ -38,6 +71,9 @@ class CivionDataStore {
   }): Incident[] {
     let result = [...this.incidents];
 
+    if (filters?.reporterId) {
+      result = result.filter((i) => i.reporterId === filters.reporterId);
+    }
     if (filters?.status && filters.status !== "ALL") {
       result = result.filter((i) => i.status === filters.status);
     }
@@ -66,12 +102,28 @@ class CivionDataStore {
     return this.incidents.find((i) => i.id === id || i.ticketNumber === id);
   }
 
-  public createIncident(data: Omit<Incident, "id" | "ticketNumber" | "createdAt" | "updatedAt">): {
+  public createIncident(data: {
+    title: string;
+    description: string;
+    category: any;
+    customDescription?: string;
+    latitude: number;
+    longitude: number;
+    address: string;
+    wardNumber: number;
+    citizenPhotoUrl: string;
+    reporterId: string;
+    reporterName?: string;
+    reporterPhone?: string;
+    originalFileSizeKb?: number;
+    compressedFileSizeKb?: number;
+    confidenceScore?: number;
+  }): {
     incident: Incident;
     isDuplicate: boolean;
     duplicateMessage?: string;
   } {
-    // 1. PostGIS 50m Spatial Deduplication Check
+    // 50m Deduplication Check
     const dedup = checkSpatialDeduplication(
       data.latitude,
       data.longitude,
@@ -82,34 +134,41 @@ class CivionDataStore {
     );
 
     const ticketNum = `CIV-${data.wardNumber}${Math.floor(100 + Math.random() * 900)}`;
+    const slaDeadline = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+
     const newIncident: Incident = {
-      ...data,
       id: `civ-inc-${Date.now()}`,
       ticketNumber: ticketNum,
+      title: data.title,
+      description: data.description,
+      customDescription: data.customDescription,
+      category: data.category,
+      status: "SUBMITTED",
+      severity: "MEDIUM",
+      confidenceScore: data.confidenceScore ?? 0.88,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      address: data.address,
+      wardNumber: data.wardNumber,
+      citizenPhotoUrl: data.citizenPhotoUrl,
+      originalFileSizeKb: data.originalFileSizeKb ?? 2400,
+      compressedFileSizeKb: data.compressedFileSizeKb ?? 280,
+      slaDeadline,
+      isSlaBreached: false,
+      reporterId: data.reporterId,
+      reporterName: data.reporterName,
+      reporterPhone: data.reporterPhone,
+      duplicateOfId: dedup.isDuplicate ? dedup.nearestIncident?.id : undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      duplicateOfId: dedup.isDuplicate ? dedup.nearestIncident?.id : undefined,
     };
 
     this.incidents.unshift(newIncident);
 
-    // Update Ward active count
     const targetWard = this.wards.find((w) => w.number === data.wardNumber);
     if (targetWard) {
       targetWard.activeIssuesCount += 1;
     }
-
-    // Add Audit Log
-    this.auditLogs.unshift({
-      id: `log-${Date.now()}`,
-      incidentId: newIncident.id,
-      action: "INCIDENT_CREATED",
-      actorId: data.reporterId,
-      actorName: data.reporterName,
-      actorRole: "CITIZEN",
-      details: dedup.isDuplicate ? `Merged near ${dedup.nearestIncident?.ticketNumber}` : "Clean ingestion",
-      timestamp: new Date().toISOString(),
-    });
 
     return {
       incident: newIncident,
@@ -121,7 +180,7 @@ class CivionDataStore {
   public updateIncident(
     id: string,
     updates: Partial<Incident>,
-    actor: { id: string; name: string; role: any }
+    actor?: any
   ): Incident | null {
     const idx = this.incidents.findIndex((i) => i.id === id || i.ticketNumber === id);
     if (idx === -1) return null;
@@ -142,44 +201,21 @@ class CivionDataStore {
     }
 
     this.incidents[idx] = updated;
-
-    this.auditLogs.unshift({
-      id: `log-${Date.now()}`,
-      incidentId: updated.id,
-      action: `STATUS_${updates.status || "UPDATED"}`,
-      actorId: actor.id,
-      actorName: actor.name,
-      actorRole: actor.role,
-      details: updates.resolvedNotes || "Incident updated via officer dispatch console",
-      timestamp: new Date().toISOString(),
-    });
-
     return updated;
   }
 
-  public runSlaEscalationCron(): { escalatedCount: number; escalatedTickets: string[] } {
+  public runSlaEscalationCron(): { escalatedCount: number; escalatedTickets: string[]; message: string } {
     const now = Date.now();
     const escalatedTickets: string[] = [];
 
     this.incidents.forEach((inc) => {
       if (inc.status !== "RESOLVED" && inc.status !== "REJECTED_INVALID" && !inc.isSlaBreached) {
-        const deadline = new Date(inc.slaDeadline).getTime();
+        const deadline = inc.slaDeadline ? new Date(inc.slaDeadline).getTime() : now + 10000;
         if (now > deadline) {
           inc.isSlaBreached = true;
           inc.status = "ESCALATED_SLA";
           inc.updatedAt = new Date().toISOString();
           escalatedTickets.push(inc.ticketNumber);
-
-          this.auditLogs.unshift({
-            id: `log-${Date.now()}-${inc.id}`,
-            incidentId: inc.id,
-            action: "SLA_BREACH_ESCALATED",
-            actorId: "system-cron",
-            actorName: "Vercel Cron Daemon",
-            actorRole: "ADMIN",
-            details: `Automated hourly cron detected SLA breach past ${inc.slaDeadline}`,
-            timestamp: new Date().toISOString(),
-          });
         }
       }
     });
@@ -187,6 +223,7 @@ class CivionDataStore {
     return {
       escalatedCount: escalatedTickets.length,
       escalatedTickets,
+      message: `Escalated ${escalatedTickets.length} breached incidents.`,
     };
   }
 
