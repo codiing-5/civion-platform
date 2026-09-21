@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 export interface SendOtpEmailParams {
   to: string;
@@ -6,25 +6,37 @@ export interface SendOtpEmailParams {
 }
 
 /**
- * Retrieves the Resend client dynamically based on current environment variables.
+ * Creates a Nodemailer transporter configured for Gmail SMTP.
+ * Credentials are read dynamically at runtime for Vercel serverless compatibility.
  */
-function getResendClient(): Resend | null {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  if (apiKey && apiKey.startsWith("re_") && apiKey.length > 10 && !apiKey.includes("xxxxxxxx")) {
-    return new Resend(apiKey);
+function createGmailTransporter() {
+  const user = process.env.GMAIL_USER?.trim();
+  const pass = process.env.GMAIL_APP_PASSWORD?.trim();
+
+  if (!user || !pass) {
+    return null;
   }
-  return null;
+
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+      user,
+      pass,
+    },
+  });
 }
 
 /**
- * Sends a Civion verification code email via Resend or logs to dev console if unconfigured.
+ * Sends a Civion verification code email via Gmail SMTP or logs to dev console if unconfigured in local development.
  */
 export async function sendVerificationEmail({
   to,
   otpCode,
 }: SendOtpEmailParams): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const emailFrom = process.env.EMAIL_FROM?.trim() || "Civion <onboarding@resend.dev>";
-  const resend = getResendClient();
+  const gmailUser = process.env.GMAIL_USER?.trim();
+  const transporter = createGmailTransporter();
 
   const subject = "Your Civion verification code";
 
@@ -79,55 +91,27 @@ If you did not request this code, you can safely ignore this email.`;
 </html>
   `;
 
-  // 1. If Resend is configured with a valid API key, send the actual email
-  if (resend) {
+  // 1. If Gmail SMTP transporter is configured, dispatch the actual email
+  if (transporter && gmailUser) {
     try {
-      const response = await resend.emails.send({
-        from: emailFrom,
+      const info = await transporter.sendMail({
+        from: `"Civion" <${gmailUser}>`,
         to,
         subject,
         text: textContent,
         html: htmlContent,
       });
 
-      if (response.error) {
-        console.error("[Resend API Error]", response.error);
-
-        // In development mode, if Resend sandbox restricts to-address, fallback to console log
-        if (process.env.NODE_ENV !== "production") {
-          console.log("\n=======================================================");
-          console.log(`📧 [CIVION RESEND SANDBOX FALLBACK] To: ${to}`);
-          console.log(`🔑 Verification Code: [ ${otpCode} ] (Valid for 5 minutes)`);
-          console.log(`⚠️ Resend Note: ${response.error.message}`);
-          console.log("=======================================================\n");
-
-          return {
-            success: true,
-            messageId: `sandbox-dev-${Date.now()}`,
-          };
-        }
-
-        const isSandboxRestricted =
-          response.error.message?.includes("testing email address") ||
-          response.error.message?.includes("only send testing emails");
-
-        return {
-          success: false,
-          error: isSandboxRestricted
-            ? "Resend test domain (onboarding@resend.dev) can only send emails to your registered Resend email address. To send to all citizens, verify your custom domain in Resend."
-            : "Failed to deliver verification email. Please check your email address.",
-        };
-      }
-
       return {
         success: true,
-        messageId: response.data?.id,
+        messageId: info.messageId,
       };
     } catch (err: any) {
-      console.error("[Resend Exception]", err?.message || err);
+      // Log technical error safely without leaking credentials or OTP
+      console.error("[Email Service Error] SMTP dispatch failed:", err?.message || "Unknown error");
 
       if (process.env.NODE_ENV !== "production") {
-        console.log(`🔑 [Dev Fallback] Code: [ ${otpCode} ]`);
+        console.log("ℹ️ Dev Fallback: Gmail SMTP dispatch encountered an error in local environment.");
         return {
           success: true,
           messageId: `dev-catch-${Date.now()}`,
@@ -136,19 +120,27 @@ If you did not request this code, you can safely ignore this email.`;
 
       return {
         success: false,
-        error: "Email delivery service unavailable. Please try again later.",
+        error: "Failed to deliver verification email. Please try again later.",
       };
     }
   }
 
-  // 2. Development & Testing Fallback: Log OTP clearly to console
-  console.log("\n=======================================================");
-  console.log(`📧 [CIVION EMAIL OTP] To: ${to}`);
-  console.log(`🔑 Verification Code: [ ${otpCode} ] (Valid for 5 minutes)`);
-  console.log("=======================================================\n");
+  // 2. Development & Testing Fallback: Log OTP to console when credentials unconfigured
+  if (process.env.NODE_ENV !== "production") {
+    console.log("\n=======================================================");
+    console.log(`📧 [CIVION EMAIL OTP DEV SIMULATION] To: ${to}`);
+    console.log(`🔑 Verification Code: [ ${otpCode} ] (Valid for 5 minutes)`);
+    console.log("ℹ️ Note: Gmail credentials unconfigured in local dev environment.");
+    console.log("=======================================================\n");
+
+    return {
+      success: true,
+      messageId: `dev-mock-${Date.now()}`,
+    };
+  }
 
   return {
-    success: true,
-    messageId: `dev-mock-${Date.now()}`,
+    success: false,
+    error: "Email delivery service unavailable. Please try again later.",
   };
 }

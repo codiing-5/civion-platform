@@ -113,4 +113,16 @@ export const RATE_LIMITS = {
     EMAIL_MAX: 5,         // 5 verify attempts per email per 10 mins
     EMAIL_WINDOW_MS: 10 * 60 * 1000,
   },
+  SEND_OTP: {
+    IP_MAX: 10,
+    IP_WINDOW_MS: 10 * 60 * 1000,
+    PHONE_MAX: 4,
+    PHONE_WINDOW_MS: 10 * 60 * 1000,
+  },
+  VERIFY_OTP: {
+    IP_MAX: 20,
+    IP_WINDOW_MS: 10 * 60 * 1000,
+    PHONE_MAX: 5,
+    PHONE_WINDOW_MS: 10 * 60 * 1000,
+  },
 };

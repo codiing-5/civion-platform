@@ -128,19 +128,19 @@ export async function POST(req: NextRequest) {
   const isExistingUser = !!existingUser;
 
   // 7. Return Secure Sanitized Response (includes dev helper only in local development when unconfigured)
-  const isDevWithoutResend =
+  const isDevWithoutGmail =
     process.env.NODE_ENV !== "production" &&
-    (!process.env.RESEND_API_KEY || !process.env.RESEND_API_KEY.startsWith("re_"));
+    (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD);
 
   return NextResponse.json(
     {
       success: true,
-      message: isDevWithoutResend
+      message: isDevWithoutGmail
         ? "Development Mode: Verification code generated and logged."
         : "Verification code sent to your email address.",
       isExistingUser,
       cooldownSeconds: generated.cooldownSeconds,
-      ...(isDevWithoutResend ? { devOtp: generated.otp } : {}),
+      ...(isDevWithoutGmail ? { devOtp: generated.otp } : {}),
     },
     {
       status: 200,

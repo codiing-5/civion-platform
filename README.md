@@ -25,8 +25,8 @@ Civion uses a zero-leakage, production-grade **Email OTP Authentication Service*
 - **Session Protection**: Issues scoped JWT tokens stored in secure `HttpOnly`, `SameSite=Lax` cookies.
 
 #### Local Dev vs. Production Behavior:
-- **Local Development (`localhost`)**: When running locally without a `RESEND_API_KEY`, the server operates in Dev Simulation mode — generating the code to the server terminal and rendering a convenient **Auto-Fill Dev Code** badge in the UI for instant testing.
-- **Production Deployments (`NODE_ENV=production`)**: Dev codes and helper badges are strictly disabled. Verification emails are dispatched directly to user inboxes via **Resend**.
+- **Local Development (`localhost`)**: When running locally without `GMAIL_USER` / `GMAIL_APP_PASSWORD`, the server operates in Dev Simulation mode — generating the code to the server terminal and rendering a convenient **Auto-Fill Dev Code** badge in the UI for instant testing.
+- **Production Deployments (`NODE_ENV=production`)**: Dev codes and helper badges are strictly disabled. Verification emails are dispatched directly to user inboxes via **Gmail SMTP**.
 
 ---
 
@@ -105,8 +105,8 @@ Configure the following variables in your `.env` (or Vercel Project Settings):
 |---|---|:---:|
 | `DATABASE_URL` | PostgreSQL connection string (Supabase / PostGIS) | Yes |
 | `JWT_SECRET` | Secret key used to sign and verify session JWTs | Yes |
-| `RESEND_API_KEY` | Resend API Key (`re_...`) for transactional email delivery | Yes (Prod only) |
-| `EMAIL_FROM` | Sender address (e.g. `Civion <onboarding@resend.dev>` or custom domain) | Optional |
+| `GMAIL_USER` | Dedicated Civion Gmail account (e.g. `your-civion-email@gmail.com`) | Yes (Prod only) |
+| `GMAIL_APP_PASSWORD` | Google App Password (16 characters) for Gmail SMTP | Yes (Prod only) |
 | `OTP_PEPPER` | Cryptographic secret salt for hashing OTP codes | Optional |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Mapbox GL token for street tiles | Optional |
 
@@ -133,7 +133,7 @@ Visit `http://localhost:3000` or `http://localhost:3000/login` to interact with 
 ## 6. Vercel Deployment & Cron Setup
 
 1. Connect your repository `codiing-5/civion-platform` in the **Vercel Dashboard**.
-2. Add environment variables (`DATABASE_URL`, `JWT_SECRET`, `RESEND_API_KEY`).
+2. Add environment variables (`DATABASE_URL`, `JWT_SECRET`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`).
 3. Deploy!
 4. The automated hourly SLA escalation cron job (`0 * * * *`) runs automatically via `vercel.json`:
    ```json

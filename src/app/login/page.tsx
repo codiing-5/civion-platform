@@ -345,7 +345,7 @@ export default function LoginPage() {
                 ))}
               </div>
 
-              {/* Dev mode helper when Resend API key is unconfigured */}
+              {/* Dev mode helper when Gmail credentials are unconfigured */}
               {demoOtpCode && (
                 <div className="mt-3.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 flex items-center justify-between animate-in fade-in">
                   <div className="text-xs text-amber-900 dark:text-amber-200">
