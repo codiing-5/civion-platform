@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 5. Send OTP via Transactional Email Service
+  // 5. Send OTP via Gmail SMTP Transactional Email Service
   const emailResult = await sendVerificationEmail({
     to: normalizedEmail,
     otpCode: generated.otp,
@@ -127,20 +127,13 @@ export async function POST(req: NextRequest) {
   const existingUser = db.findUserByEmail(normalizedEmail);
   const isExistingUser = !!existingUser;
 
-  // 7. Return Secure Sanitized Response (includes dev helper only in local development when unconfigured)
-  const isDevWithoutGmail =
-    process.env.NODE_ENV !== "production" &&
-    (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD);
-
+  // 7. Return Secure Sanitized Response (ONLY returned if sendMail succeeded)
   return NextResponse.json(
     {
       success: true,
-      message: isDevWithoutGmail
-        ? "Development Mode: Verification code generated and logged."
-        : "Verification code sent to your email address.",
+      message: "Verification code sent to your email address.",
       isExistingUser,
       cooldownSeconds: generated.cooldownSeconds,
-      ...(isDevWithoutGmail ? { devOtp: generated.otp } : {}),
     },
     {
       status: 200,

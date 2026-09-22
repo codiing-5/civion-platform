@@ -6,17 +6,28 @@ export interface SendOtpEmailParams {
 }
 
 /**
- * Creates a Nodemailer transporter configured for Gmail SMTP.
- * Credentials are read dynamically at runtime for Vercel serverless compatibility.
+ * Safely masks an email address for diagnostic logging (e.g. j***e@gmail.com).
+ * Never exposes the full email or any sensitive tokens.
  */
-function createGmailTransporter() {
-  const user = process.env.GMAIL_USER?.trim();
-  const pass = process.env.GMAIL_APP_PASSWORD?.trim();
-
-  if (!user || !pass) {
-    return null;
+function maskEmail(email: string): string {
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    return "***@***";
   }
+  const [localPart, domain] = email.split("@");
+  if (localPart.length <= 2) {
+    return `${localPart[0] || "*"}***@${domain}`;
+  }
+  return `${localPart.slice(0, 2)}***${localPart.slice(-1)}@${domain}`;
+}
 
+/**
+ * Creates a Nodemailer transporter configured for Gmail SMTP.
+ * Host: smtp.gmail.com
+ * Port: 465
+ * Secure: true
+ * Auth: GMAIL_USER and GMAIL_APP_PASSWORD
+ */
+function createGmailTransporter(user: string, pass: string) {
   return nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -29,14 +40,33 @@ function createGmailTransporter() {
 }
 
 /**
- * Sends a Civion verification code email via Gmail SMTP or logs to dev console if unconfigured in local development.
+ * Sends a Civion verification code email via Gmail SMTP.
+ * Strictly awaits transporter.sendMail and returns actual delivery status.
  */
 export async function sendVerificationEmail({
   to,
   otpCode,
 }: SendOtpEmailParams): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const maskedRecipient = maskEmail(to);
+  console.log(`[OTP Service] OTP send started for recipient: ${maskedRecipient}`);
+
   const gmailUser = process.env.GMAIL_USER?.trim();
-  const transporter = createGmailTransporter();
+  const rawPass = process.env.GMAIL_APP_PASSWORD?.trim();
+  const gmailPass = rawPass ? rawPass.replace(/\s+/g, "") : undefined;
+
+  if (!gmailUser || !gmailPass) {
+    console.error(
+      `[OTP Service] SMTP send aborted: Missing required Gmail SMTP environment variables (GMAIL_USER is ${
+        gmailUser ? "set" : "missing"
+      }, GMAIL_APP_PASSWORD is ${gmailPass ? "set" : "missing"}).`
+    );
+    return {
+      success: false,
+      error: "Email delivery service is unconfigured. GMAIL_USER and GMAIL_APP_PASSWORD environment variables are required.",
+    };
+  }
+
+  const transporter = createGmailTransporter(gmailUser, gmailPass);
 
   const subject = "Your Civion verification code";
 
@@ -91,56 +121,32 @@ If you did not request this code, you can safely ignore this email.`;
 </html>
   `;
 
-  // 1. If Gmail SMTP transporter is configured, dispatch the actual email
-  if (transporter && gmailUser) {
-    try {
-      const info = await transporter.sendMail({
-        from: `"Civion" <${gmailUser}>`,
-        to,
-        subject,
-        text: textContent,
-        html: htmlContent,
-      });
+  try {
+    const maskedSender = maskEmail(gmailUser);
+    console.log(`[OTP Service] SMTP send attempted via smtp.gmail.com:465 (secure=true, sender=${maskedSender})`);
 
-      return {
-        success: true,
-        messageId: info.messageId,
-      };
-    } catch (err: any) {
-      // Log technical error safely without leaking credentials or OTP
-      console.error("[Email Service Error] SMTP dispatch failed:", err?.message || "Unknown error");
+    const info = await transporter.sendMail({
+      from: `"Civion" <${gmailUser}>`,
+      to,
+      subject,
+      text: textContent,
+      html: htmlContent,
+    });
 
-      if (process.env.NODE_ENV !== "production") {
-        console.log("ℹ️ Dev Fallback: Gmail SMTP dispatch encountered an error in local environment.");
-        return {
-          success: true,
-          messageId: `dev-catch-${Date.now()}`,
-        };
-      }
-
-      return {
-        success: false,
-        error: "Failed to deliver verification email. Please try again later.",
-      };
-    }
-  }
-
-  // 2. Development & Testing Fallback: Log OTP to console when credentials unconfigured
-  if (process.env.NODE_ENV !== "production") {
-    console.log("\n=======================================================");
-    console.log(`📧 [CIVION EMAIL OTP DEV SIMULATION] To: ${to}`);
-    console.log(`🔑 Verification Code: [ ${otpCode} ] (Valid for 5 minutes)`);
-    console.log("ℹ️ Note: Gmail credentials unconfigured in local dev environment.");
-    console.log("=======================================================\n");
+    console.log(`[OTP Service] SMTP send successful. Message ID: ${info.messageId}`);
 
     return {
       success: true,
-      messageId: `dev-mock-${Date.now()}`,
+      messageId: info.messageId,
+    };
+  } catch (err: any) {
+    const errorCode = err?.code || "UNKNOWN";
+    const errorMessage = err?.message || "Unknown error";
+    console.error(`[OTP Service] SMTP error: code=${errorCode}, message=${errorMessage}`);
+
+    return {
+      success: false,
+      error: `Failed to deliver verification email (${errorCode}: ${errorMessage})`,
     };
   }
-
-  return {
-    success: false,
-    error: "Email delivery service unavailable. Please try again later.",
-  };
 }
