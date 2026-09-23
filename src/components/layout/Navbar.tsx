@@ -16,6 +16,8 @@ import {
   Menu,
   X,
   User as UserIcon,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 
 interface NavLinkItem {
@@ -26,25 +28,62 @@ interface NavLinkItem {
 }
 
 export const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthority, isAdmin } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
-  const navLinks: NavLinkItem[] = user
-    ? [
-        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { name: "Report Problem", href: "/report", icon: PlusCircle, isPrimary: true },
-        { name: "Live Map", href: "/map", icon: MapPin },
-        { name: "My Reports", href: "/reports", icon: FileText },
-        { name: "Emergency", href: "/emergency", icon: PhoneCall },
-      ]
-    : [
-        { name: "Home", href: "/" },
-        { name: "How It Works", href: "/#how-it-works" },
-        { name: "Emergency Helplines", href: "/emergency", icon: PhoneCall },
-      ];
+  // Dynamic Navigation Links tailored per role
+  let navLinks: NavLinkItem[] = [];
+
+  if (!user) {
+    navLinks = [
+      { name: "Home", href: "/" },
+      { name: "How It Works", href: "/#how-it-works" },
+      { name: "Emergency Helplines", href: "/emergency", icon: PhoneCall },
+    ];
+  } else if (isAdmin) {
+    navLinks = [
+      { name: "Admin Console", href: "/admin", icon: ShieldAlert },
+      { name: "Authority Queue", href: "/admin", icon: ShieldCheck },
+      { name: "Authority Portal", href: "/authority", icon: LayoutDashboard },
+      { name: "Live Map", href: "/map", icon: MapPin },
+      { name: "Profile", href: "/profile", icon: UserIcon },
+    ];
+  } else if (isAuthority) {
+    navLinks = [
+      { name: "Authority Portal", href: "/authority", icon: LayoutDashboard },
+      { name: "Live Map", href: "/map", icon: MapPin },
+      { name: "Report Problem", href: "/report", icon: PlusCircle, isPrimary: true },
+      { name: "Profile", href: "/profile", icon: UserIcon },
+    ];
+  } else {
+    // Citizen
+    navLinks = [
+      { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { name: "Report Problem", href: "/report", icon: PlusCircle, isPrimary: true },
+      { name: "Live Map", href: "/map", icon: MapPin },
+      { name: "My Reports", href: "/reports", icon: FileText },
+      { name: "Emergency", href: "/emergency", icon: PhoneCall },
+      { name: "Profile", href: "/profile", icon: UserIcon },
+    ];
+  }
+
+  const defaultHomeUrl = user
+    ? isAdmin
+      ? "/admin"
+      : isAuthority
+      ? "/authority"
+      : "/dashboard"
+    : "/";
+
+  const roleLabel = isAdmin ? "Admin" : isAuthority ? "Officer" : "Citizen";
+  const roleBadgeColor = isAdmin
+    ? "bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300"
+    : isAuthority
+    ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300"
+    : "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300";
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-[#0B1220]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
@@ -52,7 +91,7 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo Brand */}
           <Link
-            href={user ? "/dashboard" : "/"}
+            href={defaultHomeUrl}
             onClick={closeMenu}
             className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
           >
@@ -64,7 +103,7 @@ export const Navbar: React.FC = () => {
                 Civion
               </span>
               <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 -mt-1 hidden sm:block">
-                Citizen Reporting Platform
+                {isAdmin ? "Admin Governance Platform" : isAuthority ? "Municipal Authority Desk" : "Citizen Reporting Platform"}
               </span>
             </div>
           </Link>
@@ -111,14 +150,20 @@ export const Navbar: React.FC = () => {
 
             {user ? (
               <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60">
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/60 transition-colors"
+                >
                   <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
                     <UserIcon className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 max-w-[120px] truncate">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 max-w-[100px] truncate">
                     {user.name}
                   </span>
-                </div>
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${roleBadgeColor}`}>
+                    {roleLabel}
+                  </span>
+                </Link>
                 <button
                   onClick={logout}
                   title="Log out"
@@ -129,12 +174,20 @@ export const Navbar: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <Link
-                href="/login"
-                className="hidden sm:inline-flex min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 text-sm font-semibold shadow-sm transition-all"
-              >
-                Login / Sign Up
-              </Link>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link
+                  href="/login"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-900 dark:text-white text-sm font-semibold transition-all"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm transition-all"
+                >
+                  Create Account
+                </Link>
+              </div>
             )}
 
             {/* Mobile Hamburger Button */}

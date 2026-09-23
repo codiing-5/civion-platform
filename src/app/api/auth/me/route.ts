@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyRoleToken } from "@/lib/auth";
+import { verifyRoleToken, sanitizeUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -24,18 +26,15 @@ export async function GET(req: NextRequest) {
         email: payload.email,
         phone: payload.phone,
         role: payload.role,
+        wardId: payload.wardId,
+        emailVerified: payload.emailVerified,
+        authorityStatus: payload.authorityStatus,
       },
     });
   }
 
   return NextResponse.json({
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      wardId: user.wardId,
-    },
+    user: sanitizeUser(user),
   });
 }
+

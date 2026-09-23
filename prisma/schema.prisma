@@ -42,19 +42,32 @@ enum Severity {
   CRITICAL
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  role      Role     @default(CITIZEN)
-  phone     String?
-  wardId    Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum AuthorityStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
-  incidents Incident[] @relation("ReportedIncidents")
-  assigned  Incident[] @relation("AssignedOfficer")
-  auditLogs AuditLog[]
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  name            String
+  passwordHash    String?
+  role            Role             @default(CITIZEN)
+  emailVerified   Boolean          @default(false)
+  authorityStatus AuthorityStatus?
+  organization    String?
+  department      String?
+  designation     String?
+  employeeId      String?
+  phone           String?
+  wardId          Int?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  incidents       Incident[]       @relation("ReportedIncidents")
+  assigned        Incident[]       @relation("AssignedOfficer")
+  auditLogs       AuditLog[]
 }
 
 model Ward {

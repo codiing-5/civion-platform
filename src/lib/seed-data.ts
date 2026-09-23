@@ -63,29 +63,58 @@ export const SEED_WARDS: Ward[] = [
   },
 ];
 
+import crypto from "crypto";
+
+function createSeedPasswordHash(password: string, saltHex: string): string {
+  const iterations = 100000;
+  const keylen = 64;
+  const digest = "sha512";
+  const hash = crypto.pbkdf2Sync(password, saltHex, iterations, keylen, digest).toString("hex");
+  return `${saltHex}:${hash}`;
+}
+
+const DEFAULT_DEMO_PASSWORD_HASH = createSeedPasswordHash(
+  "Civion@2026!",
+  "1234567890abcdef1234567890abcdef"
+);
+
 export const DEMO_USERS: Record<string, User> = {
   citizen: {
     id: "usr-citizen-01",
     name: "Rohan Nair",
     email: "rohan.nair@civion.org",
+    passwordHash: DEFAULT_DEMO_PASSWORD_HASH,
     role: "CITIZEN",
+    emailVerified: true,
     phone: "+91 98950 11223",
     avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80",
   },
   officer: {
     id: "usr-officer-14",
-    name: "K. V. Suresh Kumar (Ward 14 Officer)",
+    name: "K. V. Suresh Kumar",
     email: "suresh.kumar@kozhikodecorp.gov.in",
+    passwordHash: DEFAULT_DEMO_PASSWORD_HASH,
     role: "OFFICER",
+    emailVerified: true,
+    authorityStatus: "APPROVED",
+    organization: "Kozhikode Municipal Corporation",
+    department: "Public Works & Road Maintenance",
+    designation: "Executive Ward Engineer",
+    employeeId: "KMC-ENG-2019-14",
     phone: "+91 98470 12345",
     wardId: 14,
     avatarUrl: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=160&q=80",
   },
   admin: {
     id: "usr-admin-director",
-    name: "Rojan Jose (Municipal Administrator)",
+    name: "Rojan Jose",
     email: "rojan.jose@civion.org",
+    passwordHash: DEFAULT_DEMO_PASSWORD_HASH,
     role: "ADMIN",
+    emailVerified: true,
+    organization: "Civion Governance Operations",
+    department: "Municipal System Administration",
+    designation: "Principal Administrator",
     phone: "+91 98460 99887",
     avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80",
   },

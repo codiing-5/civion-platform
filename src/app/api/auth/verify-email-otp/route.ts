@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
   let user = db.findUserByEmail(normalizedEmail);
 
   if (!user) {
-    // New citizen account registration
+    // New citizen account registration fallback
     const citizenName =
       body.fullName?.trim() ||
       normalizedEmail.split("@")[0].replace(/[\._\-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -136,20 +136,41 @@ export async function POST(req: NextRequest) {
       email: normalizedEmail,
       name: citizenName,
       role: "CITIZEN",
+      emailVerified: true,
     });
-  } else if (body.fullName?.trim() && (!user.name || user.name.startsWith("Citizen ") || user.name === normalizedEmail.split("@")[0])) {
-    user.name = body.fullName.trim();
+  } else {
+    user.emailVerified = true;
+    if (body.fullName?.trim() && (!user.name || user.name.startsWith("Citizen ") || user.name === normalizedEmail.split("@")[0])) {
+      user.name = body.fullName.trim();
+    }
+    db.updateUser(user.id, {
+      emailVerified: true,
+      name: user.name,
+    });
   }
 
-  // 6. Sign Scoped JWT Session Token
+  // 6. Check if Authority pending approval
+  const isPendingAuthority = user.role === "OFFICER" && user.authorityStatus === "PENDING";
+
+  // 7. Sign Scoped JWT Session Token
   const sessionToken = signRoleToken(user);
 
-  // 7. Create Response with HttpOnly Cookie
+  let portalUrl = "/dashboard";
+  if (user.role === "ADMIN") portalUrl = "/admin";
+  else if (user.role === "OFFICER") {
+    portalUrl = isPendingAuthority ? "/pending-approval" : "/authority";
+  }
+
+  // 8. Create Response with HttpOnly Cookie
   const response = NextResponse.json(
     {
       success: true,
-      message: "Email address successfully verified.",
+      message: isPendingAuthority
+        ? "Email verified. Your authority account is awaiting administrator approval."
+        : "Email address successfully verified.",
       token: sessionToken,
+      portalUrl,
+      isPendingAuthority,
       user: {
         id: user.id,
         name: user.name,
@@ -157,6 +178,11 @@ export async function POST(req: NextRequest) {
         phone: user.phone,
         role: user.role,
         wardId: user.wardId,
+        emailVerified: true,
+        authorityStatus: user.authorityStatus,
+        organization: user.organization,
+        department: user.department,
+        designation: user.designation,
       },
     },
     { status: 200 }

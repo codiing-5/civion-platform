@@ -49,26 +49,96 @@ class CivionDataStore {
     return this.users[id];
   }
 
-  public createUser(data: { email?: string; name: string; phone?: string; role?: any }): User {
-    if (data.email) {
-      const existing = this.findUserByEmail(data.email);
-      if (existing) {
-        if (data.name) existing.name = data.name;
-        return existing;
-      }
+  public createUser(data: {
+    name: string;
+    email?: string;
+    passwordHash?: string;
+    phone?: string;
+    role?: any;
+    emailVerified?: boolean;
+    authorityStatus?: any;
+    organization?: string;
+    department?: string;
+    designation?: string;
+    employeeId?: string;
+    wardId?: number;
+  }): User {
+    const cleanEmail = (data.email || (data.phone ? `${data.phone.replace(/\D/g, "")}@civion.org` : `user-${Date.now()}@civion.org`)).trim().toLowerCase();
+    const existing = this.findUserByEmail(cleanEmail);
+    if (existing) {
+      if (data.name) existing.name = data.name;
+      if (data.passwordHash) existing.passwordHash = data.passwordHash;
+      if (data.phone) existing.phone = data.phone;
+      if (data.emailVerified !== undefined) existing.emailVerified = data.emailVerified;
+      if (data.authorityStatus !== undefined) existing.authorityStatus = data.authorityStatus;
+      if (data.organization) existing.organization = data.organization;
+      if (data.department) existing.department = data.department;
+      if (data.designation) existing.designation = data.designation;
+      if (data.employeeId) existing.employeeId = data.employeeId;
+      if (data.wardId !== undefined) existing.wardId = data.wardId;
+      existing.updatedAt = new Date().toISOString();
+      return existing;
     }
 
+    const idPrefix = data.role === "OFFICER" ? "usr-officer" : data.role === "ADMIN" ? "usr-admin" : "usr-citizen";
     const newUser: User = {
-      id: `usr-citizen-${Date.now()}`,
+      id: `${idPrefix}-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       name: data.name,
-      email: data.email?.trim().toLowerCase(),
+      email: cleanEmail,
+      passwordHash: data.passwordHash,
       phone: data.phone,
       role: data.role || "CITIZEN",
+      emailVerified: data.emailVerified ?? false,
+      authorityStatus: data.authorityStatus || (data.role === "OFFICER" ? "PENDING" : undefined),
+      organization: data.organization,
+      department: data.department,
+      designation: data.designation,
+      employeeId: data.employeeId,
+      wardId: data.wardId,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     this.users[newUser.id] = newUser;
     return newUser;
+  }
+
+  public updateUser(id: string, updates: Partial<User>): User | null {
+    const user = this.users[id];
+    if (!user) return null;
+
+    const updated: User = {
+      ...user,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.users[id] = updated;
+    return updated;
+  }
+
+  public getAllUsers(): User[] {
+    return Object.values(this.users).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  }
+
+  public getAuthorities(status?: string): User[] {
+    const authorities = Object.values(this.users).filter((u) => u.role === "OFFICER");
+    if (status && status !== "ALL") {
+      return authorities.filter((u) => u.authorityStatus === status);
+    }
+    return authorities;
+  }
+
+  public updateAuthorityStatus(userId: string, status: "PENDING" | "APPROVED" | "REJECTED"): User | null {
+    const user = this.users[userId];
+    if (!user || user.role !== "OFFICER") return null;
+
+    user.authorityStatus = status;
+    user.updatedAt = new Date().toISOString();
+    this.users[userId] = user;
+    return user;
   }
 
   public getIncidents(filters?: {

@@ -1,5 +1,7 @@
 export type Role = "CITIZEN" | "OFFICER" | "ADMIN";
 
+export type AuthorityStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export type Category =
   | "POTHOLE"
   | "WASTE_DUMPING"
@@ -23,12 +25,20 @@ export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export interface User {
   id: string;
   name: string;
-  email?: string;
+  email: string;
+  passwordHash?: string;
   phone?: string;
   role: Role;
   wardId?: number;
   avatarUrl?: string;
+  emailVerified?: boolean;
+  authorityStatus?: AuthorityStatus;
+  organization?: string;
+  department?: string;
+  designation?: string;
+  employeeId?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Incident {
